@@ -30,8 +30,12 @@ class SolanaService:
         if self._program is not None or self._mock:
             return
         try:
-            with open(self._keypair_path) as f:
-                secret = json.load(f)
+            from config import settings
+            if settings.BRIDGE_KEYPAIR_JSON:
+                secret = json.loads(settings.BRIDGE_KEYPAIR_JSON)
+            else:
+                with open(self._keypair_path) as f:
+                    secret = json.load(f)
             keypair = Keypair.from_bytes(bytes(secret))
             self._wallet = Wallet(keypair)
 
