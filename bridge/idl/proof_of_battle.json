@@ -1,0 +1,1051 @@
+{
+  "address": "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP",
+  "metadata": {
+    "name": "proof_of_battle",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "On-chain arena where student robots battle for glory"
+  },
+  "instructions": [
+    {
+      "name": "claim_winnings",
+      "discriminator": [
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              },
+              {
+                "kind": "account",
+                "path": "bettor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bettor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_battle",
+      "discriminator": [
+        2,
+        249,
+        54,
+        216,
+        42,
+        99,
+        187,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "robot_a"
+        },
+        {
+          "name": "robot_b"
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "entry_fee",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "place_bet",
+      "discriminator": [
+        222,
+        62,
+        67,
+        220,
+        63,
+        166,
+        126,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              },
+              {
+                "kind": "account",
+                "path": "bettor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bettor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "side",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "register_robot",
+      "discriminator": [
+        197,
+        125,
+        231,
+        27,
+        239,
+        130,
+        255,
+        186
+      ],
+      "accounts": [
+        {
+          "name": "robot",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  98,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "name"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "attack",
+          "type": "u8"
+        },
+        {
+          "name": "defense",
+          "type": "u8"
+        },
+        {
+          "name": "speed",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "report_damage",
+      "discriminator": [
+        247,
+        33,
+        200,
+        61,
+        178,
+        214,
+        32,
+        83
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "target",
+          "type": "u8"
+        },
+        {
+          "name": "damage",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "resolve_battle",
+      "discriminator": [
+        112,
+        191,
+        142,
+        62,
+        126,
+        119,
+        170,
+        54
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "robot_a",
+          "writable": true
+        },
+        {
+          "name": "robot_b",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "winner_side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "start_battle",
+      "discriminator": [
+        87,
+        12,
+        31,
+        196,
+        33,
+        191,
+        140,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "battle",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_battle_id",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Battle",
+      "discriminator": [
+        81,
+        148,
+        121,
+        71,
+        63,
+        166,
+        116,
+        24
+      ]
+    },
+    {
+      "name": "Bet",
+      "discriminator": [
+        147,
+        23,
+        35,
+        59,
+        15,
+        75,
+        155,
+        32
+      ]
+    },
+    {
+      "name": "Robot",
+      "discriminator": [
+        34,
+        202,
+        182,
+        118,
+        208,
+        196,
+        10,
+        226
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "BattleCreated",
+      "discriminator": [
+        33,
+        66,
+        118,
+        96,
+        130,
+        0,
+        113,
+        218
+      ]
+    },
+    {
+      "name": "BattleResolved",
+      "discriminator": [
+        47,
+        156,
+        226,
+        94,
+        163,
+        176,
+        162,
+        241
+      ]
+    },
+    {
+      "name": "BattleStarted",
+      "discriminator": [
+        235,
+        52,
+        57,
+        175,
+        248,
+        203,
+        38,
+        226
+      ]
+    },
+    {
+      "name": "BetPlaced",
+      "discriminator": [
+        88,
+        88,
+        145,
+        226,
+        126,
+        206,
+        32,
+        0
+      ]
+    },
+    {
+      "name": "DamageReported",
+      "discriminator": [
+        135,
+        240,
+        133,
+        188,
+        126,
+        40,
+        185,
+        134
+      ]
+    },
+    {
+      "name": "RobotRegistered",
+      "discriminator": [
+        58,
+        98,
+        244,
+        199,
+        249,
+        162,
+        121,
+        186
+      ]
+    },
+    {
+      "name": "WinningsClaimed",
+      "discriminator": [
+        187,
+        184,
+        29,
+        196,
+        54,
+        117,
+        70,
+        150
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NameTooLong",
+      "msg": "Robot name must be 32 characters or less"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidStats",
+      "msg": "Stats must be between 0 and 100"
+    },
+    {
+      "code": 6002,
+      "name": "BattleNotOpen",
+      "msg": "Battle is not open for bets"
+    },
+    {
+      "code": 6003,
+      "name": "BattleNotActive",
+      "msg": "Battle is not active"
+    },
+    {
+      "code": 6004,
+      "name": "BattleNotFinished",
+      "msg": "Battle is not finished yet"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidSide",
+      "msg": "Invalid side: must be 0 or 1"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidBetAmount",
+      "msg": "Bet amount must be greater than 0"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidDamage",
+      "msg": "Damage must be between 0 and 50"
+    },
+    {
+      "code": 6008,
+      "name": "AlreadyClaimed",
+      "msg": "Winnings already claimed"
+    },
+    {
+      "code": 6009,
+      "name": "WrongBattle",
+      "msg": "Wrong battle ID"
+    },
+    {
+      "code": 6010,
+      "name": "DidNotWin",
+      "msg": "You did not win this battle"
+    },
+    {
+      "code": 6011,
+      "name": "NoWinner",
+      "msg": "No winner declared yet"
+    },
+    {
+      "code": 6012,
+      "name": "NotRobotOwner",
+      "msg": "Solo el dueño del robot A puede crear la batalla"
+    }
+  ],
+  "types": [
+    {
+      "name": "Battle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "robot_a",
+            "type": "pubkey"
+          },
+          {
+            "name": "robot_b",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner_a",
+            "type": "pubkey"
+          },
+          {
+            "name": "entry_fee",
+            "type": "u64"
+          },
+          {
+            "name": "total_bets_a",
+            "type": "u64"
+          },
+          {
+            "name": "total_bets_b",
+            "type": "u64"
+          },
+          {
+            "name": "hp_a",
+            "type": "u8"
+          },
+          {
+            "name": "hp_b",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "BattleStatus"
+              }
+            }
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BattleCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "robot_a",
+            "type": "pubkey"
+          },
+          {
+            "name": "robot_b",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BattleResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "winner_side",
+            "type": "u8"
+          },
+          {
+            "name": "hp_a",
+            "type": "u8"
+          },
+          {
+            "name": "hp_b",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BattleStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BattleStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Waiting"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Finished"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bettor",
+            "type": "pubkey"
+          },
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BetPlaced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bettor",
+            "type": "pubkey"
+          },
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DamageReported",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "target",
+            "type": "u8"
+          },
+          {
+            "name": "damage",
+            "type": "u8"
+          },
+          {
+            "name": "hp_a",
+            "type": "u8"
+          },
+          {
+            "name": "hp_b",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Robot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "attack",
+            "type": "u8"
+          },
+          {
+            "name": "defense",
+            "type": "u8"
+          },
+          {
+            "name": "speed",
+            "type": "u8"
+          },
+          {
+            "name": "wins",
+            "type": "u32"
+          },
+          {
+            "name": "losses",
+            "type": "u32"
+          },
+          {
+            "name": "hp",
+            "type": "u8"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RobotRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "attack",
+            "type": "u8"
+          },
+          {
+            "name": "defense",
+            "type": "u8"
+          },
+          {
+            "name": "speed",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WinningsClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bettor",
+            "type": "pubkey"
+          },
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "payout",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}

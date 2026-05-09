@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Proof of Battle",
+    "slug": "pob-mobile",
+    "version": "1.0.0",
+    "scheme": "pob",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "xyz.proofofbattle.mobile",
+      "versionCode": 1
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "bridgeUrl": "${EXPO_PUBLIC_BRIDGE_URL}",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

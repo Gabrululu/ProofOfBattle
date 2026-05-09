@@ -35,9 +35,14 @@ on-chain/solana.tar.bz2
 # ── Solana keypairs ───────────────────────────────────────────────────────────
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !on-chain/package.json
 !app/tsconfig.json
+!**/idl/*.json
+!app.json
+!babel.config.json
+!eas.json
 
 # ── Webots ────────────────────────────────────────────────────────────────────
 simulation/worlds/.*.wbt
