@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="5" fill="#05050f"/>
+  <!-- Circuit pins left (blue/A) -->
+  <rect x="1" y="10" width="5" height="2" rx="1" fill="#3b82f6" opacity="0.9"/>
+  <rect x="1" y="14.5" width="5" height="2" rx="1" fill="#3b82f6" opacity="0.6"/>
+  <rect x="1" y="19" width="5" height="2" rx="1" fill="#3b82f6" opacity="0.4"/>
+  <!-- Circuit pins right (red/B) -->
+  <rect x="26" y="10" width="5" height="2" rx="1" fill="#ef4444" opacity="0.9"/>
+  <rect x="26" y="14.5" width="5" height="2" rx="1" fill="#ef4444" opacity="0.6"/>
+  <rect x="26" y="19" width="5" height="2" rx="1" fill="#ef4444" opacity="0.4"/>
+  <!-- Circuit pins top -->
+  <rect x="11" y="1" width="2" height="5" rx="1" fill="#6366f1" opacity="0.7"/>
+  <rect x="15" y="1" width="2" height="5" rx="1" fill="#6366f1" opacity="0.5"/>
+  <rect x="19" y="1" width="2" height="5" rx="1" fill="#6366f1" opacity="0.3"/>
+  <!-- Circuit pins bottom -->
+  <rect x="11" y="26" width="2" height="5" rx="1" fill="#6366f1" opacity="0.3"/>
+  <rect x="15" y="26" width="2" height="5" rx="1" fill="#6366f1" opacity="0.5"/>
+  <rect x="19" y="26" width="2" height="5" rx="1" fill="#6366f1" opacity="0.7"/>
+  <!-- Robot body -->
+  <rect x="6" y="6" width="20" height="20" rx="3" fill="#0f172a" stroke="#1e3a5f" stroke-width="1"/>
+  <!-- Eye A (blue) -->
+  <rect x="8" y="11" width="6" height="4" rx="1.5" fill="#3b82f6"/>
+  <rect x="9" y="12" width="2" height="2" rx="0.5" fill="#93c5fd" opacity="0.8"/>
+  <!-- Eye B (red) -->
+  <rect x="18" y="11" width="6" height="4" rx="1.5" fill="#ef4444"/>
+  <rect x="19" y="12" width="2" height="2" rx="0.5" fill="#fca5a5" opacity="0.8"/>
+  <!-- Mouth / grill -->
+  <rect x="9" y="19" width="14" height="1.5" rx="0.5" fill="#1e3a5f"/>
+  <rect x="11" y="19" width="2" height="1.5" fill="#3b82f6" opacity="0.6"/>
+  <rect x="15" y="19" width="2" height="1.5" fill="#6366f1" opacity="0.6"/>
+  <rect x="19" y="19" width="2" height="1.5" fill="#ef4444" opacity="0.6"/>
+</svg>

@@ -1,25 +1,25 @@
 import { useEffect, useRef } from "react";
 
-interface RobotPos {
-  x: number;
-  y: number;
-}
+interface RobotPos { x: number; y: number; }
+interface Props { posA: RobotPos; posB: RobotPos; hpA: number; hpB: number; }
 
-interface Props {
-  posA: RobotPos;
-  posB: RobotPos;
-  hpA: number;
-  hpB: number;
-}
+const SIM = 4;
 
-const ARENA_SIZE = 4; // meters in simulation
-
-function toCanvas(pos: RobotPos, size: number) {
-  // Simulation coords: -2..+2 → canvas 0..size
+function toCanvas(pos: RobotPos, S: number) {
   return {
-    cx: ((pos.x + 2) / ARENA_SIZE) * size,
-    cy: ((pos.y + 2) / ARENA_SIZE) * size,
+    cx: ((pos.x + 2) / SIM) * S,
+    cy: ((pos.y + 2) / SIM) * S,
   };
+}
+
+function drawBracket(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, flipX: boolean, flipY: boolean) {
+  const dx = flipX ? -size : size;
+  const dy = flipY ? -size : size;
+  ctx.beginPath();
+  ctx.moveTo(x + dx, y);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x, y + dy);
+  ctx.stroke();
 }
 
 export function Arena({ posA, posB, hpA, hpB }: Props) {
@@ -33,72 +33,148 @@ export function Arena({ posA, posB, hpA, hpB }: Props) {
 
     ctx.clearRect(0, 0, S, S);
 
-    // Floor
-    ctx.fillStyle = "#1a1a2e";
+    // Floor — deep dark
+    ctx.fillStyle = "#060612";
     ctx.fillRect(0, 0, S, S);
 
-    // Grid lines
-    ctx.strokeStyle = "#2a2a4a";
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      const p = (i / 4) * S;
-      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
+    // Diagonal grid
+    ctx.save();
+    ctx.strokeStyle = "rgba(30, 58, 138, 0.25)";
+    ctx.lineWidth = 0.5;
+    const spacing = S / 10;
+    for (let i = -S; i < S * 2; i += spacing) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - S, S); ctx.stroke();
     }
+    ctx.restore();
 
-    // Border / wall
-    ctx.strokeStyle = "#cc3333";
-    ctx.lineWidth = 6;
-    ctx.strokeRect(3, 3, S - 6, S - 6);
+    // Center cross — subtle
+    ctx.save();
+    ctx.strokeStyle = "rgba(99, 102, 241, 0.15)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(S / 2, 0); ctx.lineTo(S / 2, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, S / 2); ctx.lineTo(S, S / 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
 
-    // Robot A
-    const a = toCanvas(posA, S);
+    // Center circle
+    ctx.save();
+    ctx.strokeStyle = "rgba(99, 102, 241, 0.12)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(a.cx, a.cy, 18, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(30, 100, 255, ${0.4 + 0.6 * (hpA / 100)})`;
-    ctx.fill();
-    ctx.strokeStyle = "#4488ff";
-    ctx.lineWidth = 3;
+    ctx.arc(S / 2, S / 2, S * 0.18, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+
+    // Outer wall with neon glow
+    ctx.save();
+    ctx.shadowColor = "#cc2222";
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = "#7f1d1d";
+    ctx.lineWidth = 5;
+    ctx.strokeRect(3, 3, S - 6, S - 6);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // Corner brackets
+    ctx.save();
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 2.5;
+    const br = 22;
+    drawBracket(ctx, 3, 3, br, false, false);
+    drawBracket(ctx, S - 3, 3, br, true, false);
+    drawBracket(ctx, 3, S - 3, br, false, true);
+    drawBracket(ctx, S - 3, S - 3, br, true, true);
+    ctx.restore();
+
+    // Distance line
+    const a = toCanvas(posA, S);
+    const b = toCanvas(posB, S);
+    ctx.save();
+    ctx.strokeStyle = "rgba(251,191,36,0.18)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(a.cx, a.cy); ctx.lineTo(b.cx, b.cy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Robot A — blue neon
+    ctx.save();
+    ctx.shadowColor = "#3b82f6";
+    ctx.shadowBlur = 24;
+    ctx.beginPath();
+    ctx.arc(a.cx, a.cy, 17, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(29, 78, 216, ${0.25 + 0.65 * (hpA / 100)})`;
+    ctx.fill();
+    ctx.strokeStyle = "#60a5fa";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = "white";
-    ctx.font = "bold 11px monospace";
+    ctx.font = "bold 12px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("A", a.cx, a.cy);
+    ctx.restore();
 
-    // Robot B
-    const b = toCanvas(posB, S);
+    // Robot A outer ring (HP indicator)
+    ctx.save();
+    ctx.strokeStyle = `rgba(96,165,250,${0.3 + 0.5 * (hpA / 100)})`;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(b.cx, b.cy, 18, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 50, 50, ${0.4 + 0.6 * (hpB / 100)})`;
-    ctx.fill();
-    ctx.strokeStyle = "#ff4444";
-    ctx.lineWidth = 3;
+    ctx.arc(a.cx, a.cy, 23, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * hpA) / 100);
     ctx.stroke();
+    ctx.restore();
+
+    // Robot B — red neon
+    ctx.save();
+    ctx.shadowColor = "#ef4444";
+    ctx.shadowBlur = 24;
+    ctx.beginPath();
+    ctx.arc(b.cx, b.cy, 17, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(185, 28, 28, ${0.25 + 0.65 * (hpB / 100)})`;
+    ctx.fill();
+    ctx.strokeStyle = "#f87171";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = "white";
-    ctx.font = "bold 11px monospace";
+    ctx.font = "bold 12px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("B", b.cx, b.cy);
+    ctx.restore();
 
-    // Distance line
-    ctx.beginPath();
-    ctx.moveTo(a.cx, a.cy);
-    ctx.lineTo(b.cx, b.cy);
-    ctx.strokeStyle = "rgba(255,255,0,0.2)";
+    // Robot B outer ring
+    ctx.save();
+    ctx.strokeStyle = `rgba(248,113,113,${0.3 + 0.5 * (hpB / 100)})`;
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(b.cx, b.cy, 23, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * hpB) / 100);
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Vignette
+    const vignette = ctx.createRadialGradient(S / 2, S / 2, S * 0.3, S / 2, S / 2, S * 0.75);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, S, S);
   }, [posA, posB, hpA, hpB]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={320}
-      height={320}
-      className="rounded-xl border-2 border-gray-600 w-full max-w-xs mx-auto block"
-      style={{ imageRendering: "pixelated" }}
-    />
+    <div className="relative">
+      <canvas
+        ref={canvasRef}
+        width={340}
+        height={340}
+        className="w-full max-w-sm mx-auto block rounded-lg animate-border-flicker"
+        style={{ imageRendering: "pixelated" }}
+      />
+      {/* Corner labels */}
+      <span className="absolute top-1 left-2 text-[9px] font-mono text-blue-500/60 tracking-widest">ARENA-01</span>
+      <span className="absolute top-1 right-2 text-[9px] font-mono text-red-500/60 tracking-widest">LIVE</span>
+    </div>
   );
 }
