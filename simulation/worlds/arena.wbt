@@ -1,0 +1,189 @@
+#VRML_SIM R2023b utf8
+
+WorldInfo {
+  title "Proof of Battle Arena"
+  info [
+    "On-chain robot battle arena"
+    "Bridge connects via TCP :5005"
+  ]
+  basicTimeStep 32
+  contactProperties [
+    ContactProperties {
+      material1 "robot_body"
+      material2 "robot_body"
+      coulombFriction [ 0.5 ]
+      bounce 0.3
+    }
+  ]
+}
+
+Viewpoint {
+  orientation -0.57735 0.57735 0.57735 2.0944
+  position 0 4.5 0
+  follow "ROBOT_A"
+}
+
+Background {
+  skyColor [ 0.05 0.05 0.1 ]
+}
+
+DirectionalLight {
+  ambientIntensity 0.4
+  direction -0.2 -1 -0.5
+  intensity 1.2
+}
+
+# ── Arena floor ──────────────────────────────────────────────────────────────
+Solid {
+  translation 0 -0.02 0
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.15 0.15 0.2
+        roughness 0.8
+        metalness 0.0
+      }
+      geometry Box { size 4 0.04 4 }
+    }
+  ]
+  boundingObject Box { size 4 0.04 4 }
+  physics Physics { density 10000 }
+  name "floor"
+}
+
+# ── Arena walls ───────────────────────────────────────────────────────────────
+DEF WALL_N Solid {
+  translation 0 0.15 -2
+  children [ Shape { appearance PBRAppearance { baseColor 0.8 0.2 0.1 } geometry Box { size 4 0.3 0.1 } } ]
+  boundingObject Box { size 4 0.3 0.1 }
+  physics Physics {}
+}
+DEF WALL_S Solid {
+  translation 0 0.15 2
+  children [ Shape { appearance PBRAppearance { baseColor 0.8 0.2 0.1 } geometry Box { size 4 0.3 0.1 } } ]
+  boundingObject Box { size 4 0.3 0.1 }
+  physics Physics {}
+}
+DEF WALL_E Solid {
+  translation 2 0.15 0
+  children [ Shape { appearance PBRAppearance { baseColor 0.8 0.2 0.1 } geometry Box { size 0.1 0.3 4 } } ]
+  boundingObject Box { size 0.1 0.3 4 }
+  physics Physics {}
+}
+DEF WALL_W Solid {
+  translation -2 0.15 0
+  children [ Shape { appearance PBRAppearance { baseColor 0.8 0.2 0.1 } geometry Box { size 0.1 0.3 4 } } ]
+  boundingObject Box { size 0.1 0.3 4 }
+  physics Physics {}
+}
+
+# ── Robot A (Blue team) ───────────────────────────────────────────────────────
+DEF ROBOT_A Robot {
+  translation -1.2 0.1 0
+  rotation 0 1 0 0
+  name "robot_a"
+  controller "robot_controller"
+  supervisor TRUE
+  children [
+    DEF ROBOT_A_BODY Shape {
+      appearance PBRAppearance { baseColor 0.1 0.3 0.9 roughness 0.4 metalness 0.7 }
+      geometry Box { size 0.3 0.15 0.25 }
+    }
+    # Front touch sensor
+    DEF robot_a_touch_front TouchSensor {
+      translation 0.15 0 0
+      name "robot_a_touch_front"
+      children [ Shape { geometry Box { size 0.01 0.1 0.2 } } ]
+      boundingObject Box { size 0.01 0.1 0.2 }
+      physics Physics {}
+    }
+    # Rear touch sensor
+    DEF robot_a_touch_rear TouchSensor {
+      translation -0.15 0 0
+      name "robot_a_touch_rear"
+      children [ Shape { geometry Box { size 0.01 0.1 0.2 } } ]
+      boundingObject Box { size 0.01 0.1 0.2 }
+      physics Physics {}
+    }
+    GPS { name "robot_a_gps" }
+    Compass { name "robot_a_compass" }
+    # Left wheel
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 0 0 1 anchor -0.1 -0.07 0.13 }
+      device [ RotationalMotor { name "robot_a_left_motor" maxVelocity 6.28 } ]
+      endPoint Solid {
+        translation -0.1 -0.07 0.13
+        children [ Shape { appearance PBRAppearance { baseColor 0.1 0.1 0.1 } geometry Cylinder { radius 0.05 height 0.04 } } ]
+        boundingObject Cylinder { radius 0.05 height 0.04 }
+        physics Physics {}
+      }
+    }
+    # Right wheel
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 0 0 1 anchor -0.1 -0.07 -0.13 }
+      device [ RotationalMotor { name "robot_a_right_motor" maxVelocity 6.28 } ]
+      endPoint Solid {
+        translation -0.1 -0.07 -0.13
+        children [ Shape { appearance PBRAppearance { baseColor 0.1 0.1 0.1 } geometry Cylinder { radius 0.05 height 0.04 } } ]
+        boundingObject Cylinder { radius 0.05 height 0.04 }
+        physics Physics {}
+      }
+    }
+  ]
+  boundingObject Box { size 0.3 0.15 0.25 }
+  physics Physics { mass 1.5 }
+  contactMaterial "robot_body"
+}
+
+# ── Robot B (Red team) ────────────────────────────────────────────────────────
+DEF ROBOT_B Robot {
+  translation 1.2 0.1 0
+  rotation 0 1 0 3.14159
+  name "robot_b"
+  controller "<none>"
+  children [
+    DEF ROBOT_B_BODY Shape {
+      appearance PBRAppearance { baseColor 0.9 0.15 0.1 roughness 0.4 metalness 0.7 }
+      geometry Box { size 0.3 0.15 0.25 }
+    }
+    DEF robot_b_touch_front TouchSensor {
+      translation 0.15 0 0
+      name "robot_b_touch_front"
+      children [ Shape { geometry Box { size 0.01 0.1 0.2 } } ]
+      boundingObject Box { size 0.01 0.1 0.2 }
+      physics Physics {}
+    }
+    DEF robot_b_touch_rear TouchSensor {
+      translation -0.15 0 0
+      name "robot_b_touch_rear"
+      children [ Shape { geometry Box { size 0.01 0.1 0.2 } } ]
+      boundingObject Box { size 0.01 0.1 0.2 }
+      physics Physics {}
+    }
+    GPS { name "robot_b_gps" }
+    Compass { name "robot_b_compass" }
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 0 0 1 anchor -0.1 -0.07 0.13 }
+      device [ RotationalMotor { name "robot_b_left_motor" maxVelocity 6.28 } ]
+      endPoint Solid {
+        translation -0.1 -0.07 0.13
+        children [ Shape { appearance PBRAppearance { baseColor 0.1 0.1 0.1 } geometry Cylinder { radius 0.05 height 0.04 } } ]
+        boundingObject Cylinder { radius 0.05 height 0.04 }
+        physics Physics {}
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters { axis 0 0 1 anchor -0.1 -0.07 -0.13 }
+      device [ RotationalMotor { name "robot_b_right_motor" maxVelocity 6.28 } ]
+      endPoint Solid {
+        translation -0.1 -0.07 -0.13
+        children [ Shape { appearance PBRAppearance { baseColor 0.1 0.1 0.1 } geometry Cylinder { radius 0.05 height 0.04 } } ]
+        boundingObject Cylinder { radius 0.05 height 0.04 }
+        physics Physics {}
+      }
+    }
+  ]
+  boundingObject Box { size 0.3 0.15 0.25 }
+  physics Physics { mass 1.5 }
+  contactMaterial "robot_body"
+}

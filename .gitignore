@@ -1,0 +1,52 @@
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+*.env
+!*.env.example
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Node / JS ─────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# ── Anchor / Rust ─────────────────────────────────────────────────────────────
+on-chain/target/
+on-chain/.anchor/
+on-chain/test-ledger/
+**/*.so
+**/*.keypair
+
+# ── Solana keypairs ───────────────────────────────────────────────────────────
+*.json
+!package.json
+!tsconfig.json
+!on-chain/package.json
+!app/tsconfig.json
+
+# ── Webots ────────────────────────────────────────────────────────────────────
+simulation/worlds/.*.wbt
+*.wbproj
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
