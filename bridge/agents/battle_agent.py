@@ -39,9 +39,9 @@ Output format (strict JSON, nothing else):
 
 
 class BattleAgent:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, agent_id: str = ""):
         self._api_key = api_key
-        # Virtuals Protocol Game Agent endpoint
+        self._agent_id = agent_id
         self._base_url = "https://api.virtuals.io/api/v1"
         self._client = httpx.AsyncClient(timeout=10)
 
@@ -70,14 +70,15 @@ class BattleAgent:
             "systemPrompt": SYSTEM_PROMPT,
         }
         headers = {"x-api-key": self._api_key, "Content-Type": "application/json"}
-        resp = await self._client.post(
-            f"{self._base_url}/agents/game",
-            json=payload,
-            headers=headers,
+        # Use agent-specific endpoint when agent_id is set, else generic game endpoint
+        endpoint = (
+            f"{self._base_url}/agents/{self._agent_id}/game"
+            if self._agent_id
+            else f"{self._base_url}/agents/game"
         )
+        resp = await self._client.post(endpoint, json=payload, headers=headers)
         resp.raise_for_status()
         data = resp.json()
-        # Extract the text response and parse as JSON
         raw_text = data.get("data", {}).get("text", "{}")
         return json.loads(raw_text)
 

@@ -27,6 +27,8 @@ dist/
 on-chain/target/
 on-chain/.anchor/
 on-chain/test-ledger/
+on-chain/solana-release/
+on-chain/solana.tar.bz2
 **/*.so
 **/*.keypair
 

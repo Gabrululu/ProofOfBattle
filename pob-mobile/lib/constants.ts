@@ -1,8 +1,8 @@
 import { PublicKey, clusterApiUrl } from "@solana/web3.js";
 
-// Deployed program ID — from on-chain/target/types/proof_of_battle.ts
+// Deployed program ID — devnet
 export const PROGRAM_ID = new PublicKey(
-  "7xStH3SCRkztTc1SWQtcx9ACvwqaYyUJF35dTbpAZG2S"
+  "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
 );
 
 export const RPC_ENDPOINT = clusterApiUrl("devnet");

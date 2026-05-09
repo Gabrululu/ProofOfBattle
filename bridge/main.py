@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 elevenlabs = ElevenLabsService(settings.ELEVENLABS_API_KEY)
 solana = SolanaService(settings.SOLANA_RPC_URL, settings.BRIDGE_KEYPAIR_PATH)
 webots = WebotsService(settings.WEBOTS_HOST, settings.WEBOTS_PORT)
-agent = BattleAgent(settings.VIRTUALS_API_KEY)
+agent = BattleAgent(settings.VIRTUALS_API_KEY, settings.VIRTUALS_AGENT_ID)
 
 # Active WebSocket connections (arena_id → list of sockets)
 arena_subscribers: dict[str, list[WebSocket]] = {}

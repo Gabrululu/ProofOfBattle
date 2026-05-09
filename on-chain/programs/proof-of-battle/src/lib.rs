@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("7xStH3SCRkztTc1SWQtcx9ACvwqaYyUJF35dTbpAZG2S");
+declare_id!("9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP");
 
 #[program]
 pub mod proof_of_battle {
@@ -258,7 +258,7 @@ pub struct CreateBattle<'info> {
         bump
     )]
     /// CHECK: PDA vault para guardar SOL de apuestas
-    pub vault: AccountInfo<'info>,
+    pub vault: UncheckedAccount<'info>,
     #[account(constraint = robot_a.owner == creator.key() @ PoBError::NotRobotOwner)]
     pub robot_a: Account<'info, Robot>,
     pub robot_b: Account<'info, Robot>,
@@ -290,7 +290,7 @@ pub struct PlaceBet<'info> {
         bump
     )]
     /// CHECK: PDA vault
-    pub vault: AccountInfo<'info>,
+    pub vault: UncheckedAccount<'info>,
     #[account(mut)]
     pub bettor: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -356,7 +356,7 @@ pub struct ClaimWinnings<'info> {
         bump
     )]
     /// CHECK: PDA vault
-    pub vault: AccountInfo<'info>,
+    pub vault: UncheckedAccount<'info>,
     #[account(mut)]
     pub bettor: Signer<'info>,
     pub system_program: Program<'info, System>,

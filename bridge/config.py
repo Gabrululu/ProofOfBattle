@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     SOLANA_RPC_URL: str = "https://api.devnet.solana.com"
     BRIDGE_KEYPAIR_PATH: str = "~/.config/solana/id.json"
-    PROGRAM_ID: str = "7xStH3SCRkztTc1SWQtcx9ACvwqaYyUJF35dTbpAZG2S"
+    PROGRAM_ID: str = "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
 
     WEBOTS_HOST: str = "127.0.0.1"
     WEBOTS_PORT: int = 5005
