@@ -1,8 +1,32 @@
 # ⚔️ Proof of Battle
 
-> *"Imagina si BattleBots tuviera un smart contract como árbitro, ElevenLabs como comentarista, y el Seeker como control remoto."*
+> *Voice-commanded robot battles, arbitrated on-chain.*
 
-The on-chain arena where student robots are born, trained, and battle for glory.
+An AI-powered robot combat arena where players command their robots using natural language, an autonomous AI agent translates commands into physical actions, and every hit is recorded immutably on Solana.
+
+**Built for Hack Dev3Pack · Virtuals Protocol — Best AI Agent into Physical World**
+
+---
+
+## Live Deployments
+
+| Component | URL |
+|---|---|
+| Smart Contract (Devnet) | [`9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP`](https://explorer.solana.com/address/9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP?cluster=devnet) |
+| Bridge API | `https://stunning-space-disco-xqqp4wqp55gc9qv9-8000.app.github.dev` |
+| Bridge Docs | [`/docs`](https://stunning-space-disco-xqqp4wqp55gc9qv9-8000.app.github.dev/docs) |
+
+---
+
+## What It Does
+
+1. **Player speaks** — *"Attack! Go left! Boost!"* into the Seeker mobile app
+2. **ElevenLabs** transcribes the voice command in real-time
+3. **ARES AI Agent** reads the command + live sensor data (HP, enemy distance, position) and decides the optimal robot action
+4. **Webots** simulation executes the action — motors move, collisions trigger
+5. **Every collision** is signed and recorded on Solana as an on-chain transaction
+6. **ElevenLabs TTS** generates dramatic live commentary after each hit
+7. The **Seeker app** receives HP updates, audio commentary, and transaction proofs
 
 ---
 
@@ -10,128 +34,185 @@ The on-chain arena where student robots are born, trained, and battle for glory.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                     CIRCULAR DATA FLOW                              │
+│                         PROOF OF BATTLE                             │
 │                                                                     │
-│  📱 Seeker App          🐍 Bridge (Python)       🤖 Webots           │
+│  📱 Seeker App          🐍 Bridge (Python)       🤖 Webots Sim       │
 │  ┌──────────┐           ┌─────────────┐          ┌──────────────┐  │
-│  │ Voice    │──voice──▶ │ ElevenLabs  │          │ Simulation   │  │
-│  │ capture  │           │ STT         │          │              │  │
+│  │ Voice    │──voice──▶ │ ElevenLabs  │          │ Robot Arena  │  │
+│  │ command  │           │   STT       │          │              │  │
 │  │          │           │      │      │          │              │  │
-│  │          │           │ Virtuals    │◀─sensors─│ Sensors      │  │
-│  │          │           │ Agent       │──action─▶│ Motors       │  │
+│  │          │           │  ARES Agent │◀─sensors─│ Distance     │  │
+│  │          │           │  (AI+rules) │──action─▶│ Motors       │  │
 │  │          │◀─events── │      │      │          │ Collision    │  │
-│  └──────────┘           │ Solana svc  │◀─impact──│ Detection    │  │
-│                         └─────┬───────┘          └──────────────┘  │
-│                               │ sign tx                            │
-│                         ┌─────▼───────┐                            │
-│                         │ ⛓ Solana    │                            │
-│                         │ (Anchor)    │                            │
-│                         │ match state │                            │
+│  │ HP bars  │           │ Solana svc  │◀─impact──│ Detection    │  │
+│  │ Audio    │           └─────┬───────┘          └──────────────┘  │
+│  │ Tx proof │                 │ sign & send tx                     │
+│  └──────────┘           ┌─────▼───────┐                            │
+│                         │  ⛓ Solana   │                            │
+│                         │   Devnet    │                            │
+│                         │ on-chain HP │                            │
 │                         └─────────────┘                            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Project Structure
 
 ```
 ProofOfBattle/
-├── on-chain/               # Anchor / Solana smart contract
-│   ├── programs/proof-of-battle/src/lib.rs
-│   ├── tests/proof_of_battle.ts
-│   └── Anchor.toml
-├── bridge/                 # Python orchestration hub
-│   ├── main.py             # FastAPI + WebSocket server
-│   ├── agents/battle_agent.py   # Virtuals Protocol AI
+├── on-chain/                        # Anchor 1.0.2 smart contract
+│   ├── programs/proof-of-battle/
+│   │   └── src/lib.rs               # register_robot, create_battle,
+│   │                                #   place_bet, report_damage,
+│   │                                #   resolve_battle, claim_winnings
+│   └── Anchor.toml                  # deployed to Solana Devnet
+│
+├── bridge/                          # Python orchestration hub
+│   ├── main.py                      # FastAPI + WebSocket server
+│   ├── agents/battle_agent.py       # ARES AI — decides robot actions
 │   └── services/
-│       ├── elevenlabs.py   # STT + TTS commentary
-│       ├── solana.py       # Transaction signing
-│       └── webots.py       # Simulation socket
-├── simulation/             # Webots robot battle
+│       ├── elevenlabs.py            # STT transcription + TTS commentary
+│       ├── solana.py                # Transaction signing (anchorpy)
+│       └── webots.py                # Simulation socket client
+│
+├── simulation/                      # Webots robot battle world
 │   ├── worlds/arena.wbt
 │   └── controllers/robot_controller/robot_controller.py
-└── app/                    # React mobile-first Seeker UI
+│
+├── pob-mobile/                      # React Native (Expo) Seeker app
+│   ├── app/index.tsx                # Battle screen
+│   └── components/                  # HPBar, BetPanel, WalletButton
+│
+└── app/                             # React web Seeker UI (fallback)
     └── src/
-        ├── App.tsx
-        ├── components/     # HealthBar, Arena, VoiceControl, Commentary
-        └── hooks/          # useWebSocket, useVoice
+        ├── components/              # HealthBar, Arena, VoiceControl
+        └── hooks/useWebSocket.ts
 ```
+
+---
 
 ## Quick Start
 
-### 1 · On-Chain (Anchor)
+### Prerequisites
+
+- [Rust](https://rustup.rs) + [Solana CLI](https://release.anza.xyz/stable/install)
+- [Anchor 1.0.2](https://www.anchor-lang.com/docs/installation) via AVM
+- Python 3.11+
+- [Webots R2023b](https://cyberbotics.com)
+- Node 18+ / Expo CLI
+
+### 1 · Smart Contract
 
 ```bash
-# Install: https://www.anchor-lang.com/docs/installation
 cd on-chain
 anchor build
-anchor deploy          # targets Devnet by default
-anchor test
+anchor program deploy --provider.cluster devnet
 ```
 
-Copy the deployed program ID into `Anchor.toml` and `bridge/.env`.
+Program already deployed at `9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP`.
 
-### 2 · Bridge (Python)
+### 2 · Bridge
 
 ```bash
 cd bridge
-cp .env.example .env   # fill in your API keys
+cp .env.example .env      # add ELEVENLABS_API_KEY
 pip install -r requirements.txt
 python main.py
-# → http://localhost:8000
+# → http://localhost:8000/docs
 ```
 
-### 3 · Simulation (Webots)
+### 3 · Simulation
 
 1. Install [Webots R2023b](https://cyberbotics.com)
 2. Open `simulation/worlds/arena.wbt`
-3. Press **Play** — the controller auto-connects to the bridge on `:5005`
+3. Press **Play** — controller auto-connects to the bridge on port `5005`
 
-### 4 · App (Seeker UI)
+### 4 · Mobile App
 
 ```bash
-cd app
-cp .env.example .env   # set VITE_BRIDGE_URL
+cd pob-mobile
 npm install
-npm run dev
-# → http://localhost:5173
+npx expo start
 ```
 
-Open on your phone (same network) and use **Hold to Command**.
+Scan the QR code with Expo Go on your phone.
+
+### 5 · Initialize a Battle
+
+```bash
+curl -X POST http://localhost:8000/admin/setup
+curl -X POST http://localhost:8000/admin/battle/1/start
+```
 
 ---
 
-## API Keys Needed
+## On-Chain Program
 
-| Service | Where to get |
-|---------|-------------|
-| ElevenLabs | elevenlabs.io → API Keys |
-| Virtuals Protocol | virtuals.io → Developer Portal |
-| Solana wallet | `solana-keygen new` |
+**Deployed:** [`9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP`](https://explorer.solana.com/address/9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP?cluster=devnet) · Solana Devnet
+
+| Instruction | Description |
+|---|---|
+| `register_robot` | Mint a robot PDA with attack/defense/speed stats |
+| `create_battle` | Open a battle and vault for bets |
+| `place_bet` | Bet SOL on a robot — locked until battle resolves |
+| `start_battle` | Transition Waiting → Active, closes betting |
+| `report_damage` | Record a hit on-chain, deduct HP |
+| `resolve_battle` | Declare winner, update robot W/L record |
+| `claim_winnings` | Winners claim proportional payout from vault |
+
+---
 
 ## WebSocket Protocol
 
-### `/ws/seeker/{arena_id}` — Seeker → Bridge
+### Seeker → Bridge — `/ws/seeker/{arena_id}`
 ```json
 { "type": "voice_text", "text": "Attack!", "robot_id": "robot_a" }
-{ "type": "voice_audio", "audio": "<base64-webm>", "robot_id": "robot_b" }
+{ "type": "voice_audio", "audio": "<base64-webm>", "robot_id": "robot_a" }
 ```
 
-### `/ws/arena/{arena_id}` — Bridge → UI
+### Bridge → UI — `/ws/arena/{arena_id}`
 ```json
-{ "type": "damage", "attacker": "robot_a", "target": "robot_b", "damage": 15, "hp_a": 85, "hp_b": 65, "tx": "...", "commentary_audio": "<base64-mp3>" }
-{ "type": "sensor_update", "robot_a": {"hp": 85, "position": {"x": -0.5, "y": 0.3}}, "robot_b": {...} }
-{ "type": "match_over", "winner": "<pubkey>", "tx": "..." }
+{ "type": "damage", "attacker": "robot_a", "target": "robot_b",
+  "damage": 15, "hp_a": 85, "hp_b": 70,
+  "tx": "<solana-signature>", "commentary_audio": "<base64-mp3>" }
+
+{ "type": "robot_action", "robot_id": "robot_a",
+  "action": { "action": "attack", "intensity": 1.0, "reason": "Enemy in range" } }
+
+{ "type": "match_over", "winner": 0, "winner_label": "robot_a", "tx": "..." }
 ```
-
-## On-Chain Program Instructions
-
-| Instruction | Who calls | Effect |
-|-------------|-----------|--------|
-| `create_robot(name)` | Player | Mints robot PDA |
-| `create_match(arena_id)` | Bridge authority | Opens a match |
-| `report_damage(target, damage, description)` | Bridge authority | Deducts HP, emits `DamageEvent` |
-| `advance_round()` | Bridge authority | Increments round counter |
 
 ---
 
-Built for **Hack Dev3Pack** · Solana Devnet
+## Environment Variables
+
+### `bridge/.env`
+```env
+SOLANA_RPC_URL=https://api.devnet.solana.com
+PROGRAM_ID=9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP
+BRIDGE_KEYPAIR_PATH=~/.config/solana/id.json
+ELEVENLABS_API_KEY=your_key_here
+ELEVENLABS_VOICE_ID=onwK4e9ZLuTAKqWW03F9
+WEBOTS_HOST=127.0.0.1
+WEBOTS_PORT=5005
+```
+
+### `app/.env`
+```env
+VITE_BRIDGE_URL=ws://localhost:8000
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contract | Rust · Anchor 1.0.2 · Solana Devnet |
+| AI Agent | Rule engine + Virtuals Protocol fallback |
+| Voice | ElevenLabs STT (Scribe v1) + TTS (Turbo v2.5) |
+| Simulation | Webots R2023b |
+| Bridge | Python · FastAPI · WebSockets |
+| Mobile | React Native · Expo · Solana Mobile Wallet Adapter |
+| Web UI | React · Vite · TypeScript |

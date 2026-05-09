@@ -7,7 +7,6 @@ export const PROGRAM_ID = new PublicKey(
 
 export const RPC_ENDPOINT = clusterApiUrl("devnet");
 
-// Replace with your local machine's IP when running bridge locally
-// Bridge FastAPI runs on port 8000
-export const BRIDGE_BASE_URL = "http://192.168.1.100:8000";
-export const BRIDGE_WS_BASE = "ws://192.168.1.100:8000";
+// Bridge — GitHub Codespace public URL
+export const BRIDGE_BASE_URL = "https://stunning-space-disco-xqqp4wqp55gc9qv9-8000.app.github.dev";
+export const BRIDGE_WS_BASE = "wss://stunning-space-disco-xqqp4wqp55gc9qv9-8000.app.github.dev";
