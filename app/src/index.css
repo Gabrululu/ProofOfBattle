@@ -75,6 +75,19 @@ body::after {
 
 /* ── Utility classes ───────────────────────────────────────────── */
 
+@keyframes ring-pulse {
+  0%, 100% { transform: scale(0.88); opacity: 0.55; }
+  50%       { transform: scale(1.08); opacity: 0.15; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes boot-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .animate-live-blink   { animation: live-blink 1s step-end infinite; }
 .animate-glow-blue    { animation: glow-blue 2.5s ease-in-out infinite; }
 .animate-glow-red     { animation: glow-red 2.5s ease-in-out infinite; }
