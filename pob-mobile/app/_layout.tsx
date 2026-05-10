@@ -21,6 +21,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="home"  options={{ title: "PROOF OF BATTLE", headerBackVisible: false }} />
       </Stack>
     </WalletProvider>
   );

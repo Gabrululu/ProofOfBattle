@@ -1,363 +1,240 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Animated, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet,
+  SafeAreaView, Animated, Dimensions,
 } from "react-native";
-import { useRouter, Href } from "expo-router";
-import { RobotFace }  from "../components/RobotFace";
-import { WalletButton } from "../components/WalletButton";
-import { useWallet }  from "../hooks/useWallet";
-import { useRobot }   from "../hooks/useRobot";
-import { C, MONO }    from "../lib/theme";
+import { useRouter } from "expo-router";
+import { RobotFace } from "../components/RobotFace";
+import { C, MONO } from "../lib/theme";
 
-const BATTLES = [
-  { id: 1, sublabel: "Arena Alpha", status: "ACTIVE"  as const },
-  { id: 2, sublabel: "Beta Ring",   status: "WAITING" as const },
+const { width: W } = Dimensions.get("window");
+
+const BOOT_LINES = [
+  { delay: 0,    color: C.textDim,  text: "POBIOS v1.0  ·  PROOF OF BATTLE SYSTEMS" },
+  { delay: 300,  color: C.textDim,  text: "SOLANA DEVNET  ·  9MFZtJ…MxCP" },
+  { delay: 600,  color: C.teal,     text: "> LOADING VIRTUALS G.A.M.E. AGENT ... [OK]" },
+  { delay: 900,  color: C.teal,     text: "> ELEVENLABS STT/TTS ONLINE ........... [OK]" },
+  { delay: 1200, color: C.teal,     text: "> WEBOTS SIMULATION READY ............. [OK]" },
+  { delay: 1500, color: C.green,    text: "> ALL SYSTEMS GO — ARENA ONLINE ✓" },
 ];
 
-function PulsingDot({ color }: { color: string }) {
-  const op = useRef(new Animated.Value(1)).current;
+function BootLine({ text, color, delay }: { text: string; color: string; delay: number }) {
+  const op = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.loop(
+    Animated.timing(op, {
+      toValue: 1, duration: 250, delay, useNativeDriver: true,
+    }).start();
+  }, []);
+  return (
+    <Animated.Text style={[styles.bootLine, { color, opacity: op }]}>
+      {text}
+    </Animated.Text>
+  );
+}
+
+function GlowRing({ size, color, delay }: { size: number; color: string; delay: number }) {
+  const scale = useRef(new Animated.Value(0.85)).current;
+  const op    = useRef(new Animated.Value(0.6)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(op, { toValue: 0.2, duration: 550, useNativeDriver: true }),
-        Animated.timing(op, { toValue: 1,   duration: 550, useNativeDriver: true }),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1.08, duration: 1600, delay, useNativeDriver: true }),
+          Animated.timing(op,    { toValue: 0.15, duration: 1600, delay, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 0.85, duration: 1600, useNativeDriver: true }),
+          Animated.timing(op,    { toValue: 0.6,  duration: 1600, useNativeDriver: true }),
+        ]),
       ])
-    ).start();
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
   return (
     <Animated.View style={{
-      width: 6, height: 6, borderRadius: 3,
-      backgroundColor: color, opacity: op,
-      shadowColor: color, shadowOpacity: 0.9, shadowRadius: 4,
+      position: "absolute",
+      width: size, height: size, borderRadius: size / 2,
+      borderWidth: 1.5, borderColor: color,
+      opacity: op, transform: [{ scale }],
     }} />
   );
 }
 
-function TerminalBoot() {
-  const op = useRef(new Animated.Value(0)).current;
+const FEATURES = [
+  { icon: "⛓", label: "ON-CHAIN RECORD", color: C.purple },
+  { icon: "🎙", label: "VOICE COMMANDS",  color: C.teal   },
+  { icon: "🤖", label: "AI AGENT (ARES)", color: C.green  },
+];
+
+export default function LandingScreen() {
+  const router   = useRouter();
+  const heroOp   = useRef(new Animated.Value(0)).current;
+  const heroY    = useRef(new Animated.Value(24)).current;
+  const btnScale = useRef(new Animated.Value(1)).current;
+  const [ready, setReady] = useState(false);
+
   useEffect(() => {
-    Animated.timing(op, { toValue: 1, duration: 600, delay: 200, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(heroOp, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(heroY,  { toValue: 0, duration: 700, useNativeDriver: true }),
+    ]).start();
+
+    const t = setTimeout(() => setReady(true), 1700);
+    return () => clearTimeout(t);
   }, []);
-  return (
-    <Animated.View style={[styles.terminal, { opacity: op }]}>
-      <Text style={styles.termLine}>
-        <Text style={{ color: C.textDim }}>POBIOS v1.0 © 2025 PROOF OF BATTLE</Text>
-      </Text>
-      <Text style={styles.termLine}>
-        <Text style={{ color: C.textDim }}>SOLANA DEVNET  ·  PROGRAM: </Text>
-        <Text style={{ color: C.teal }}>7xStH3…ZG2S</Text>
-      </Text>
-      <Text style={[styles.termLine, { marginTop: 4 }]}>
-        <Text style={{ color: C.green }}>{">"} </Text>
-        <Text style={{ color: C.textSecondary }}>ARENA ONLINE  </Text>
-        <Text style={{ color: C.green }}>[OK]</Text>
-      </Text>
-    </Animated.View>
-  );
-}
 
-function MyRobotSection() {
-  const router = useRouter();
-  const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
-  const { robot, loading } = useRobot(publicKey);
-
-  return (
-    <View style={styles.myRobotSection}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>MY ROBOT</Text>
-        <View style={styles.sectionLine} />
-      </View>
-
-      {!publicKey ? (
-        <View style={styles.myRobotCard}>
-          <Text style={styles.myRobotHint}>Connect wallet to register your robot</Text>
-          <WalletButton
-            publicKey={publicKey}
-            connecting={connecting}
-            isWebPreview={isWebPreview}
-            onConnect={connect}
-            onDisconnect={disconnect}
-          />
-        </View>
-      ) : loading ? (
-        <View style={styles.myRobotCard}>
-          <ActivityIndicator color={C.purple} />
-        </View>
-      ) : robot ? (
-        <TouchableOpacity
-          style={[styles.myRobotCard, styles.myRobotCardActive]}
-          onPress={() => router.push("/robot" as Href)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.myRobotTop}>
-            <RobotFace size={48} primaryColor={C.purple} accentColor={C.green} animated />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={styles.myRobotName}>{robot.name}</Text>
-              <View style={styles.myRobotStats}>
-                <Text style={[styles.statChip, { color: C.danger }]}>ATK {robot.attack}</Text>
-                <Text style={[styles.statChip, { color: C.teal }]}>DEF {robot.defense}</Text>
-                <Text style={[styles.statChip, { color: C.waiting }]}>SPD {robot.speed}</Text>
-              </View>
-            </View>
-            <View style={styles.myRobotRecord}>
-              <Text style={[styles.recordNum, { color: C.green }]}>{robot.wins}W</Text>
-              <Text style={[styles.recordNum, { color: C.danger }]}>{robot.losses}L</Text>
-            </View>
-          </View>
-          <Text style={styles.myRobotCta}>Tap to view → ENTER BATTLE</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={styles.myRobotCard}
-          onPress={() => router.push("/robot" as Href)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.myRobotHint}>No robot registered yet</Text>
-          <View style={styles.forgeBtn}>
-            <Text style={styles.forgeBtnText}>⚔ FORGE YOUR ROBOT</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
-
-export default function HomeScreen() {
-  const router = useRouter();
+  const handleEnter = () => {
+    Animated.sequence([
+      Animated.timing(btnScale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
+      Animated.timing(btnScale, { toValue: 1,    duration: 80, useNativeDriver: true }),
+    ]).start(() => router.replace("/home"));
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <View style={styles.container}>
 
-        {/* Hero */}
-        <View style={styles.hero}>
-          <RobotFace size={96} primaryColor={C.purple} accentColor={C.green} animated />
-          <View style={styles.heroText}>
-            <Text style={styles.heroTitle}>PROOF{"\n"}OF BATTLE</Text>
-            <Text style={styles.heroSub}>Robot battles · On-chain stakes</Text>
-          </View>
+        {/* Robot hero with glow rings */}
+        <Animated.View style={[styles.heroWrap, { opacity: heroOp, transform: [{ translateY: heroY }] }]}>
+          <GlowRing size={200} color={C.purple} delay={0}   />
+          <GlowRing size={260} color={C.teal}   delay={400} />
+          <GlowRing size={320} color={C.green}  delay={800} />
+          <RobotFace size={120} primaryColor={C.purple} accentColor={C.green} animated />
+        </Animated.View>
+
+        {/* Title */}
+        <Animated.View style={[styles.titleBlock, { opacity: heroOp, transform: [{ translateY: heroY }] }]}>
+          <Text style={styles.title}>PROOF{"\n"}OF BATTLE</Text>
+          <Text style={styles.tagline}>Robot combat · On-chain truth · AI at the wheel</Text>
+        </Animated.View>
+
+        {/* Feature pills */}
+        <View style={styles.features}>
+          {FEATURES.map((f) => (
+            <View key={f.label} style={[styles.pill, { borderColor: f.color + "55" }]}>
+              <Text style={styles.pillIcon}>{f.icon}</Text>
+              <Text style={[styles.pillLabel, { color: f.color }]}>{f.label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* BIOS-style terminal boot */}
-        <TerminalBoot />
-
-        {/* My Robot */}
-        <MyRobotSection />
-
-        {/* Section header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>LIVE ARENAS</Text>
-          <View style={styles.sectionLine} />
+        {/* Terminal boot */}
+        <View style={styles.terminal}>
+          {BOOT_LINES.map((l) => (
+            <BootLine key={l.text} {...l} />
+          ))}
         </View>
 
-        {/* Battle cards */}
-        {BATTLES.map((b) => {
-          const isActive  = b.status === "ACTIVE";
-          const statusClr = isActive ? C.live : C.waiting;
-          return (
-            <TouchableOpacity
-              key={b.id}
-              style={[styles.card, isActive && { borderColor: C.robotA }]}
-              activeOpacity={0.75}
-              onPress={() =>
-                router.push({
-                  pathname: "/battle/[id]",
-                  params:   { id: b.id },
-                } as Href)
-              }
-            >
-              {/* Top — robot preview */}
-              <View style={styles.cardArena}>
-                <RobotFace size={38} primaryColor={C.robotA} accentColor={C.robotB} />
-                <View style={styles.cardCenter}>
-                  <Text style={styles.cardVs}>VS</Text>
-                  <Text style={styles.cardSerial}>BATTLE://{String(b.id).padStart(3, "0")}</Text>
-                </View>
-                <RobotFace size={38} primaryColor={C.robotB} accentColor={C.robotA} />
-              </View>
+        {/* CTA */}
+        <Animated.View style={{ transform: [{ scale: btnScale }], width: "100%" }}>
+          <TouchableOpacity
+            style={[styles.enterBtn, !ready && styles.enterBtnDim]}
+            onPress={handleEnter}
+            disabled={!ready}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.enterBtnText}>
+              {ready ? "ENTER ARENA →" : "INITIALIZING…"}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-              {/* Bottom — info strip */}
-              <View style={styles.cardInfo}>
-                <View>
-                  <Text style={styles.cardTitle}>{b.sublabel}</Text>
-                  <Text style={styles.cardPath}>
-                    C:\ARENAS\{b.sublabel.toUpperCase().replace(" ", "_")}
-                  </Text>
-                </View>
-                <View style={styles.statusChip}>
-                  {isActive && <PulsingDot color={statusClr} />}
-                  <Text style={[styles.statusTxt, { color: statusClr }]}>
-                    {b.status}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View style={styles.solDots}>
-            {([C.purple, C.teal, C.green] as string[]).map((c, i) => (
-              <View key={i} style={[styles.dot, { backgroundColor: c }]} />
-            ))}
-          </View>
-          <Text style={styles.footerTxt}>SOLANA DEVNET</Text>
+        {/* Network badge */}
+        <View style={styles.netRow}>
+          <View style={styles.netDot} />
+          <Text style={styles.netLabel}>SOLANA DEVNET</Text>
         </View>
 
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: C.bg },
-  scroll:  { flex: 1 },
-  content: { padding: 20, paddingBottom: 48, gap: 14 },
+  safe:      { flex: 1, backgroundColor: C.bg },
+  container: {
+    flex: 1,
+    alignItems:     "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    gap: 24,
+  },
 
   // Hero
-  hero:      { alignItems: "center", paddingVertical: 32, gap: 20 },
-  heroText:  { alignItems: "center", gap: 8 },
-  heroTitle: {
+  heroWrap: {
+    width: 320, height: 320,
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // Title
+  titleBlock: { alignItems: "center", gap: 10 },
+  title: {
     color:      C.textPrimary,
-    fontSize:   42,
+    fontSize:   44,
     fontWeight: "900",
     textAlign:  "center",
-    letterSpacing: 8,
-    lineHeight:    46,
+    letterSpacing: 10,
+    lineHeight:    50,
   },
-  heroSub: {
+  tagline: {
     fontFamily: MONO,
     color:      C.textSecondary,
     fontSize:   11,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    textAlign:  "center",
   },
+
+  // Features
+  features: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
+  pill: {
+    flexDirection: "row",
+    alignItems:    "center",
+    gap:           6,
+    borderWidth:   1,
+    borderRadius:  20,
+    paddingVertical:   5,
+    paddingHorizontal: 12,
+    backgroundColor:   "#0C0C1A",
+  },
+  pillIcon:  { fontSize: 12 },
+  pillLabel: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
 
   // Terminal
   terminal: {
+    width:           "100%",
     backgroundColor: C.bgCard,
     borderRadius:    8,
     borderWidth:     1,
     borderColor:     C.border,
     borderLeftWidth: 2,
     borderLeftColor: C.green,
-    padding:         14,
-    gap:             4,
+    padding:         12,
+    gap:             3,
   },
-  termLine: { fontFamily: MONO, fontSize: 10, letterSpacing: 0.5 },
+  bootLine: { fontFamily: MONO, fontSize: 9.5, letterSpacing: 0.3 },
 
-  // Section
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  sectionLabel:  {
-    fontFamily: MONO,
-    color:      C.textDim,
-    fontSize:   9,
-    fontWeight: "800",
-    letterSpacing: 4,
-  },
-  sectionLine: { flex: 1, height: 1, backgroundColor: C.border },
-
-  // Card
-  card: {
-    backgroundColor: C.bgCard,
-    borderRadius:    12,
-    borderWidth:     1,
-    borderColor:     C.border,
-    overflow:        "hidden",
-  },
-  cardArena: {
-    flexDirection:   "row",
-    alignItems:      "center",
-    justifyContent:  "space-between",
-    paddingVertical: 22,
-    paddingHorizontal: 24,
-    backgroundColor: C.bgAccent,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  cardCenter: { alignItems: "center", gap: 4 },
-  cardVs: {
-    color:      C.textDim,
-    fontSize:   16,
-    fontWeight: "900",
-    letterSpacing: 4,
-  },
-  cardSerial: {
-    fontFamily: MONO,
-    color:      C.textDim,
-    fontSize:   8,
-    letterSpacing: 1,
-  },
-  cardInfo: {
-    flexDirection:   "row",
-    justifyContent:  "space-between",
-    alignItems:      "center",
-    padding:         14,
-    paddingHorizontal: 18,
-  },
-  cardTitle: {
-    color:      C.textPrimary,
-    fontSize:   14,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  cardPath: {
-    fontFamily: MONO,
-    color:      C.textDim,
-    fontSize:   9,
-    marginTop:  3,
-  },
-  statusChip: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statusTxt:  {
-    fontFamily: MONO,
-    fontSize:   9,
-    fontWeight: "800",
-    letterSpacing: 2,
-  },
-
-  // Footer
-  footer:    { alignItems: "center", paddingTop: 28, gap: 8 },
-  solDots:   { flexDirection: "row", gap: 6 },
-  dot:       { width: 5, height: 5, borderRadius: 2.5 },
-  footerTxt: {
-    fontFamily: MONO,
-    color:      C.textDim,
-    fontSize:   9,
-    letterSpacing: 4,
-  },
-
-  // My Robot section
-  myRobotSection: { gap: 10 },
-  myRobotCard: {
-    backgroundColor: C.bgCard,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
-    gap: 12,
-    alignItems: "center",
-  },
-  myRobotCardActive: {
-    borderColor: C.purple,
-    shadowColor: C.purple,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  myRobotTop:   { flexDirection: "row", alignItems: "center", gap: 14, width: "100%" },
-  myRobotName:  { color: C.textPrimary, fontSize: 16, fontWeight: "900", letterSpacing: 2 },
-  myRobotStats: { flexDirection: "row", gap: 8 },
-  statChip:     { fontFamily: MONO, fontSize: 10, fontWeight: "700" },
-  myRobotRecord:{ alignItems: "center", gap: 2 },
-  recordNum:    { fontFamily: MONO, fontSize: 12, fontWeight: "900" },
-  myRobotHint:  { color: C.textDim, fontSize: 12, fontFamily: MONO },
-  myRobotCta:   { fontFamily: MONO, color: C.textDim, fontSize: 9, letterSpacing: 1 },
-  forgeBtn: {
+  // CTA
+  enterBtn: {
     backgroundColor: C.purple,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    borderRadius:    14,
+    paddingVertical: 18,
+    alignItems:      "center",
+    shadowColor:     C.purple,
+    shadowOpacity:   0.5,
+    shadowRadius:    16,
+    elevation:       8,
   },
-  forgeBtnText: { color: "#fff", fontWeight: "900", fontSize: 12, letterSpacing: 2 },
+  enterBtnDim: { backgroundColor: "#2A1A4A", shadowOpacity: 0 },
+  enterBtnText: {
+    color:      "#fff",
+    fontWeight: "900",
+    fontSize:   16,
+    letterSpacing: 4,
+  },
+
+  // Network
+  netRow:  { flexDirection: "row", alignItems: "center", gap: 6 },
+  netDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
+  netLabel:{ fontFamily: MONO, color: C.textDim, fontSize: 9, letterSpacing: 3 },
 });
