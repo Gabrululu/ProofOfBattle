@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from "react-native";
 import {
   PublicKey, Transaction, SystemProgram,
@@ -12,6 +11,7 @@ import { connection, getBattlePDA, getVaultPDA, getBetPDA } from "../lib/program
 import { PROGRAM_ID } from "../lib/constants";
 import { C, MONO } from "../lib/theme";
 import { useWallet } from "../hooks/useWallet";
+import { toast } from "./Toast";
 
 const PLACE_BET_DISCRIMINATOR = Buffer.from([222, 62, 67, 220, 63, 166, 126, 33]);
 const AMOUNTS = ["0.05", "0.1", "0.5", "1"];
@@ -69,13 +69,13 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(sig, "confirmed");
-        Alert.alert(
-          "Bet placed! ⚔",
-          `${amount} SOL on Robot ${side === 0 ? "A" : "B"}\n\nTX: ${sig.slice(0, 16)}…`,
+        toast.success(
+          `Bet placed — ${amount} SOL on Robot ${side === 0 ? "A" : "B"}`,
+          sig.slice(0, 16) + "…",
         );
       });
     } catch (e: unknown) {
-      Alert.alert("Error", e instanceof Error ? e.message : String(e));
+      toast.error("Bet failed", e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

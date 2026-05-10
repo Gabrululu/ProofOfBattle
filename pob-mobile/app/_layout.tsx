@@ -7,11 +7,13 @@ import { Buffer } from "buffer";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { WalletProvider } from "../contexts/WalletContext";
+import { ToastContainer } from "../components/Toast";
 
 export default function RootLayout() {
   return (
     <WalletProvider>
       <StatusBar style="light" />
+      <ToastContainer />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: "#050510" },

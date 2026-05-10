@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, Alert, ActivityIndicator,
+  SafeAreaView, ScrollView, ActivityIndicator,
 } from "react-native";
 import { Stack } from "expo-router";
 import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
@@ -13,6 +13,7 @@ import { PROGRAM_ID } from "../lib/constants";
 import { useWallet } from "../hooks/useWallet";
 import { useRobot } from "../hooks/useRobot";
 import { WalletButton } from "../components/WalletButton";
+import { toast } from "../components/Toast";
 import { C, MONO } from "../lib/theme";
 
 const PRESETS = [
@@ -68,12 +69,11 @@ export default function RobotScreen() {
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(sig, "confirmed");
-        Alert.alert("Robot forged!", `${trimmed} is now on-chain.\n${sig.slice(0, 16)}…`);
+        toast.success(`${trimmed} forged on-chain ⚔`, sig.slice(0, 16) + "…");
         reload();
       });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert("Error", msg);
+      toast.error("Transaction failed", e instanceof Error ? e.message : String(e));
     } finally {
       setMinting(false);
     }
