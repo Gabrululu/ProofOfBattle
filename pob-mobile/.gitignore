@@ -10,3 +10,7 @@ node_modules/
 dist/
 .env
 google-service-account.json
+
+# Native folders generadas por expo prebuild — EAS Build las regenera en sus servidores
+android/
+ios/
