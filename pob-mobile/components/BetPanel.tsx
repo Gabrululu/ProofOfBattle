@@ -10,7 +10,8 @@ import {
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { connection, getBattlePDA, getVaultPDA, getBetPDA } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
-import { C } from "../lib/theme";
+import { C, MONO } from "../lib/theme";
+import { useWallet } from "../hooks/useWallet";
 
 const PLACE_BET_DISCRIMINATOR = Buffer.from([222, 62, 67, 220, 63, 166, 126, 33]);
 const AMOUNTS = ["0.05", "0.1", "0.5", "1"];
@@ -23,13 +24,16 @@ interface Props {
 }
 
 export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props) {
+  const { connect, connecting } = useWallet();
   const [side,    setSide]    = useState<0 | 1 | null>(null);
   const [amount,  setAmount]  = useState("0.1");
   const [loading, setLoading] = useState(false);
 
   const totalPool = totalBetsA + totalBetsB;
-  const oddsA = totalPool > 0 ? ((totalBetsA / totalPool) * 100).toFixed(0) : "50";
-  const oddsB = totalPool > 0 ? ((totalBetsB / totalPool) * 100).toFixed(0) : "50";
+  const pctA = totalPool > 0 ? (totalBetsA / totalPool) * 100 : 50;
+  const pctB = 100 - pctA;
+  const oddsA = pctA.toFixed(0);
+  const oddsB = pctB.toFixed(0);
 
   const placeBet = async () => {
     if (!publicKey || side === null) return;
@@ -54,18 +58,21 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
         tx.add(new TransactionInstruction({
           programId: PROGRAM_ID,
           keys: [
-            { pubkey: battlePDA,                  isSigner: false, isWritable: true },
-            { pubkey: betPDA,                     isSigner: false, isWritable: true },
-            { pubkey: vaultPDA,                   isSigner: false, isWritable: true },
-            { pubkey: publicKey,                  isSigner: true,  isWritable: true },
-            { pubkey: SystemProgram.programId,    isSigner: false, isWritable: false },
+            { pubkey: battlePDA,               isSigner: false, isWritable: true  },
+            { pubkey: betPDA,                  isSigner: false, isWritable: true  },
+            { pubkey: vaultPDA,                isSigner: false, isWritable: true  },
+            { pubkey: publicKey,               isSigner: true,  isWritable: true  },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
           ],
           data,
         }));
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(sig, "confirmed");
-        Alert.alert("Bet placed!", `${amount} SOL on Robot ${side === 0 ? "A" : "B"}\n${sig.slice(0, 16)}…`);
+        Alert.alert(
+          "Bet placed! ⚔",
+          `${amount} SOL on Robot ${side === 0 ? "A" : "B"}\n\nTX: ${sig.slice(0, 16)}…`,
+        );
       });
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : String(e));
@@ -74,167 +81,241 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
     }
   };
 
-  if (!publicKey) {
-    return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>Connect wallet to place bets</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.panel}>
-      <Text style={styles.title}>PLACE YOUR BET</Text>
 
-      {/* Pool */}
-      <Text style={styles.pool}>
-        Total pool — {(totalPool / LAMPORTS_PER_SOL).toFixed(3)} SOL
-      </Text>
-
-      {/* Side selector */}
-      <View style={styles.sideRow}>
-        <TouchableOpacity
-          style={[styles.sideBtn, side === 0 && { backgroundColor: C.robotA, borderColor: C.robotA }]}
-          onPress={() => setSide(0)}
-        >
-          <Text style={styles.sideBtnLabel}>ROBOT A</Text>
-          <Text style={styles.sideOdds}>{oddsA}%</Text>
-        </TouchableOpacity>
-
-        <View style={styles.vsSmall}><Text style={styles.vsText}>VS</Text></View>
-
-        <TouchableOpacity
-          style={[styles.sideBtn, { borderColor: C.robotB }, side === 1 && { backgroundColor: C.robotB, borderColor: C.robotB }]}
-          onPress={() => setSide(1)}
-        >
-          <Text style={styles.sideBtnLabel}>ROBOT B</Text>
-          <Text style={styles.sideOdds}>{oddsB}%</Text>
-        </TouchableOpacity>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerDot} />
+        <Text style={styles.title}>PLACE YOUR BET</Text>
+        <View style={styles.headerDot} />
       </View>
 
-      {/* Amount chips */}
-      <View style={styles.amountRow}>
-        {AMOUNTS.map((v) => (
-          <TouchableOpacity
-            key={v}
-            style={[styles.chip, amount === v && styles.chipActive]}
-            onPress={() => setAmount(v)}
-          >
-            <Text style={[styles.chipText, amount === v && styles.chipTextActive]}>
-              {v}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Confirm */}
-      <TouchableOpacity
-        style={[styles.betBtn, side === null && styles.betBtnDisabled]}
-        onPress={placeBet}
-        disabled={loading || side === null}
-      >
-        {loading ? (
-          <ActivityIndicator color="#000" />
-        ) : (
-          <Text style={styles.betBtnText}>
-            BET {amount} SOL{side !== null ? ` · ROBOT ${side === 0 ? "A" : "B"}` : ""}
+      {/* Pool bar — always visible so spectators see the odds before connecting */}
+      <View style={styles.poolSection}>
+        <View style={styles.poolLabels}>
+          <Text style={[styles.poolSide, { color: C.robotA }]}>ROBOT A  {oddsA}%</Text>
+          <Text style={[styles.poolTotal, { color: C.teal }]}>
+            {(totalPool / LAMPORTS_PER_SOL).toFixed(3)} SOL
           </Text>
-        )}
-      </TouchableOpacity>
+          <Text style={[styles.poolSide, { color: C.robotB, textAlign: "right" }]}>
+            {oddsB}%  ROBOT B
+          </Text>
+        </View>
+        <View style={styles.poolBar}>
+          <View style={[styles.poolFillA, { flex: pctA }]} />
+          <View style={[styles.poolFillB, { flex: pctB }]} />
+        </View>
+      </View>
+
+      {/* Not connected — show connect CTA inline */}
+      {!publicKey ? (
+        <View style={styles.connectBox}>
+          <Text style={styles.connectHint}>Connect your wallet to bet on the winner</Text>
+          <TouchableOpacity
+            style={styles.connectBtn}
+            onPress={connect}
+            disabled={connecting}
+          >
+            {connecting ? (
+              <ActivityIndicator color="#000" size="small" />
+            ) : (
+              <Text style={styles.connectBtnText}>CONNECT WALLET →</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {/* Side selector */}
+          <View style={styles.sideRow}>
+            <TouchableOpacity
+              style={[styles.sideBtn, { borderColor: C.robotA },
+                side === 0 && { backgroundColor: C.robotA }]}
+              onPress={() => setSide(0)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.sideBtnLabel}>ROBOT A</Text>
+              <Text style={[styles.sideOdds, side === 0 && { color: "#fff" }]}>
+                {oddsA}% of pool
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.vsSmall}>
+              <Text style={styles.vsText}>VS</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.sideBtn, { borderColor: C.robotB },
+                side === 1 && { backgroundColor: C.robotB }]}
+              onPress={() => setSide(1)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.sideBtnLabel}>ROBOT B</Text>
+              <Text style={[styles.sideOdds, side === 1 && { color: "#fff" }]}>
+                {oddsB}% of pool
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Amount chips */}
+          <View style={styles.amountRow}>
+            {AMOUNTS.map((v) => (
+              <TouchableOpacity
+                key={v}
+                style={[styles.chip, amount === v && styles.chipActive]}
+                onPress={() => setAmount(v)}
+              >
+                <Text style={[styles.chipText, amount === v && styles.chipTextActive]}>
+                  {v} SOL
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Payout estimate */}
+          {side !== null && totalPool > 0 && (
+            <Text style={styles.estimate}>
+              Est. return if Robot {side === 0 ? "A" : "B"} wins:{" "}
+              <Text style={{ color: C.green }}>
+                {((parseFloat(amount) * totalPool * 0.95) /
+                  (side === 0 ? totalBetsA : totalBetsB) /
+                  LAMPORTS_PER_SOL).toFixed(3)} SOL
+              </Text>
+            </Text>
+          )}
+
+          {/* Confirm button */}
+          <TouchableOpacity
+            style={[styles.betBtn, side === null && styles.betBtnDisabled]}
+            onPress={placeBet}
+            disabled={loading || side === null}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.betBtnText}>
+                {side !== null
+                  ? `BET ${amount} SOL ON ROBOT ${side === 0 ? "A" : "B"} →`
+                  : "SELECT A ROBOT TO BET"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  empty: {
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyText: { color: C.textDim, fontSize: 13 },
-
   panel: {
     backgroundColor: C.bgCard,
-    borderRadius: 14,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: C.border,
-    gap: 12,
+    borderRadius:    14,
+    padding:         18,
+    borderWidth:     1,
+    borderColor:     C.border,
+    gap:             14,
   },
+
+  // Header
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerDot: { flex: 1, height: 1, backgroundColor: C.border },
   title: {
-    color: C.green,
-    fontSize: 12,
-    fontWeight: "900",
+    fontFamily:  MONO,
+    color:       C.green,
+    fontSize:    11,
+    fontWeight:  "900",
     letterSpacing: 3,
-    textAlign: "center",
-  },
-  pool: {
-    color: C.textSecondary,
-    fontSize: 11,
-    textAlign: "center",
   },
 
-  sideRow: {
-    flexDirection:  "row",
-    alignItems:     "center",
-    gap: 8,
+  // Pool bar
+  poolSection: { gap: 8 },
+  poolLabels:  { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  poolSide: {
+    fontFamily: MONO, fontSize: 10, fontWeight: "800", letterSpacing: 1, flex: 1,
   },
-  sideBtn: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: C.robotA,
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-    gap: 4,
+  poolTotal: {
+    fontFamily: MONO, fontSize: 11, fontWeight: "700", textAlign: "center",
   },
-  sideBtnLabel: { color: C.textPrimary, fontWeight: "800", fontSize: 12, letterSpacing: 1 },
-  sideOdds:    { color: C.textSecondary, fontSize: 10 },
-  vsSmall:     { paddingHorizontal: 4 },
-  vsText:      { color: C.textDim, fontSize: 11, fontWeight: "700" },
-
-  amountRow: {
+  poolBar: {
     flexDirection: "row",
-    gap: 6,
-  },
-  chip: {
-    flex: 1,
+    height:        10,
+    borderRadius:  5,
+    overflow:      "hidden",
     backgroundColor: C.bgAccent,
-    borderRadius: 7,
-    paddingVertical: 9,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: C.border,
   },
-  chipActive: {
-    backgroundColor: C.purple,
-    borderColor: C.purple,
-    shadowColor: C.purple,
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  chipText:       { color: C.textSecondary, fontSize: 11, fontWeight: "700" },
-  chipTextActive: { color: "#fff" },
+  poolFillA: { backgroundColor: C.robotA, borderRadius: 5 },
+  poolFillB: { backgroundColor: C.robotB, borderRadius: 5 },
 
-  betBtn: {
+  // Connect CTA
+  connectBox: { gap: 12, alignItems: "center", paddingVertical: 8 },
+  connectHint: {
+    fontFamily: MONO, color: C.textSecondary,
+    fontSize: 12, textAlign: "center", lineHeight: 18,
+  },
+  connectBtn: {
     backgroundColor: C.purple,
-    borderRadius: 10,
-    padding: 15,
-    alignItems: "center",
+    borderRadius:    10,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
     shadowColor: C.purple,
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 6,
   },
-  betBtnDisabled: {
+  connectBtnText: {
+    color: "#fff", fontWeight: "900",
+    fontSize: 13, letterSpacing: 3,
+  },
+
+  // Side selector
+  sideRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sideBtn: {
+    flex: 1, borderWidth: 1.5,
+    borderRadius: 10, padding: 14,
+    alignItems: "center", gap: 4,
     backgroundColor: C.bgAccent,
-    shadowOpacity: 0,
-    elevation: 0,
+  },
+  sideBtnLabel: {
+    color: C.textPrimary, fontWeight: "900",
+    fontSize: 13, letterSpacing: 1,
+  },
+  sideOdds: { color: C.textDim, fontFamily: MONO, fontSize: 10 },
+  vsSmall:  { paddingHorizontal: 2 },
+  vsText:   { color: C.textDim, fontSize: 11, fontWeight: "700" },
+
+  // Amount
+  amountRow: { flexDirection: "row", gap: 6 },
+  chip: {
+    flex: 1, backgroundColor: C.bgAccent,
+    borderRadius: 8, paddingVertical: 10,
+    alignItems: "center", borderWidth: 1, borderColor: C.border,
+  },
+  chipActive: {
+    backgroundColor: C.purple, borderColor: C.purple,
+    shadowColor: C.purple, shadowOpacity: 0.4,
+    shadowRadius: 8, elevation: 4,
+  },
+  chipText:       { fontFamily: MONO, color: C.textSecondary, fontSize: 10, fontWeight: "700" },
+  chipTextActive: { color: "#fff" },
+
+  // Estimate
+  estimate: {
+    fontFamily: MONO, color: C.textDim,
+    fontSize: 10, textAlign: "center",
+  },
+
+  // Bet button
+  betBtn: {
+    backgroundColor: C.purple, borderRadius: 10,
+    padding: 16, alignItems: "center",
+    shadowColor: C.purple, shadowOpacity: 0.45,
+    shadowRadius: 12, elevation: 6,
+  },
+  betBtnDisabled: {
+    backgroundColor: C.bgAccent, shadowOpacity: 0, elevation: 0,
   },
   betBtnText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 13,
-    letterSpacing: 1,
+    color: "#fff", fontWeight: "900",
+    fontSize: 13, letterSpacing: 2,
   },
 });

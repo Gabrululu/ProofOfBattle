@@ -6,16 +6,15 @@ import {
 } from "react-native";
 import type { BattleEvent } from "../../hooks/useBattle";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { useBattle }      from "../../hooks/useBattle";
-import { useWallet }      from "../../hooks/useWallet";
-import { useRobot }       from "../../hooks/useRobot";
-import { HPBar }          from "../../components/HPBar";
-import { BetPanel }       from "../../components/BetPanel";
-import { ClaimPanel }     from "../../components/ClaimPanel";
-import { WalletButton }   from "../../components/WalletButton";
-import { RobotFace }      from "../../components/RobotFace";
-import { CommandPanel }   from "../../components/CommandPanel";
-import { C, MONO }        from "../../lib/theme";
+import { useBattle }    from "../../hooks/useBattle";
+import { useWallet }    from "../../hooks/useWallet";
+import { useRobot }     from "../../hooks/useRobot";
+import { HPBar }        from "../../components/HPBar";
+import { BetPanel }     from "../../components/BetPanel";
+import { ClaimPanel }   from "../../components/ClaimPanel";
+import { RobotFace }    from "../../components/RobotFace";
+import { CommandPanel } from "../../components/CommandPanel";
+import { C, MONO }      from "../../lib/theme";
 
 const STATUS = [
   { label: "STANDBY",  color: C.waiting  },
@@ -100,7 +99,7 @@ export default function BattleScreen() {
     logScrollRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
   useEffect(() => { scrollToTop(); }, [battle.events.length]);
-  const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
+  const { publicKey } = useWallet();
   const { robot } = useRobot(publicKey);
 
   // Detect if the connected wallet's robot is in this battle
@@ -236,17 +235,6 @@ export default function BattleScreen() {
                   color={C.robotB}
                 />
               </View>
-            </View>
-
-            {/* ── Wallet ─────────────────────────────────────────── */}
-            <View style={styles.walletRow}>
-              <WalletButton
-                publicKey={publicKey}
-                connecting={connecting}
-                isWebPreview={isWebPreview}
-                onConnect={connect}
-                onDisconnect={disconnect}
-              />
             </View>
 
             {/* ── Commander panel ────────────────────────────────── */}
@@ -468,9 +456,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: "800",
   },
-
-  // Wallet
-  walletRow: { alignItems: "center" },
 
   // Winner
   winnerCard: {
