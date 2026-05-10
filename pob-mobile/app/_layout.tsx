@@ -18,7 +18,9 @@ export default function RootLayout() {
           headerTitleStyle: { fontWeight: "bold" },
           contentStyle: { backgroundColor: "#050510" },
         }}
-      />
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+      </Stack>
     </>
   );
 }
