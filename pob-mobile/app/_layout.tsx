@@ -6,10 +6,11 @@ import { Buffer } from "buffer";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { WalletProvider } from "../contexts/WalletContext";
 
 export default function RootLayout() {
   return (
-    <>
+    <WalletProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -21,6 +22,6 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
       </Stack>
-    </>
+    </WalletProvider>
   );
 }
