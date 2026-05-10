@@ -8,10 +8,17 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "xyz.proofofbattle.mobile",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-av",
+        { "microphonePermission": "Allow Proof of Battle to record voice commands for your robot." }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

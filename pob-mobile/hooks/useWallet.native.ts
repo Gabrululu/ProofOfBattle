@@ -27,7 +27,14 @@ export function useWallet() {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert("Wallet", msg);
+      const noWallet = msg.toLowerCase().includes("no installed wallet") ||
+                       msg.toLowerCase().includes("no wallet");
+      Alert.alert(
+        noWallet ? "No wallet found" : "Wallet error",
+        noWallet
+          ? "Install Phantom or Solflare from Google Play, then try again."
+          : msg
+      );
     } finally {
       setConnecting(false);
     }

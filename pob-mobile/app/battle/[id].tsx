@@ -1,18 +1,21 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { useLocalSearchParams, Stack } from "expo-router";
 import {
   View, Text, ScrollView, StyleSheet,
   SafeAreaView, Animated, ActivityIndicator,
 } from "react-native";
+import type { BattleEvent } from "../../hooks/useBattle";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { useBattle }    from "../../hooks/useBattle";
-import { useWallet }    from "../../hooks/useWallet";
-import { HPBar }        from "../../components/HPBar";
-import { BetPanel }     from "../../components/BetPanel";
-import { ClaimPanel }   from "../../components/ClaimPanel";
-import { WalletButton } from "../../components/WalletButton";
-import { RobotFace }    from "../../components/RobotFace";
-import { C, MONO }      from "../../lib/theme";
+import { useBattle }      from "../../hooks/useBattle";
+import { useWallet }      from "../../hooks/useWallet";
+import { useRobot }       from "../../hooks/useRobot";
+import { HPBar }          from "../../components/HPBar";
+import { BetPanel }       from "../../components/BetPanel";
+import { ClaimPanel }     from "../../components/ClaimPanel";
+import { WalletButton }   from "../../components/WalletButton";
+import { RobotFace }      from "../../components/RobotFace";
+import { CommandPanel }   from "../../components/CommandPanel";
+import { C, MONO }        from "../../lib/theme";
 
 const STATUS = [
   { label: "STANDBY",  color: C.waiting  },
@@ -50,16 +53,29 @@ function LivePulse() {
   );
 }
 
-/* ── Terminal event log line ────────────────────────────────────────── */
-function EventLine({ text }: { text: string }) {
+/* ── Event feed line ────────────────────────────────────────────────── */
+const EVENT_COLOR: Record<BattleEvent["kind"], string> = {
+  damage: "#ff4444",
+  action: "#b06cff",
+  system: "#555577",
+  result: "#00ff88",
+};
+
+function EventLine({ evt }: { evt: BattleEvent }) {
   const op = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(op, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-  }, [text]);
+    Animated.timing(op, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+  }, []);
+  const hh = new Date(evt.ts).toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   return (
     <Animated.View style={[styles.eventLine, { opacity: op }]}>
-      <Text style={styles.eventPrompt}>{">"}</Text>
-      <Text style={styles.eventMsg}>{text}</Text>
+      <Text style={[styles.eventKind, { color: EVENT_COLOR[evt.kind] }]}>
+        {evt.kind === "damage" ? "DMG" : evt.kind === "action" ? "ACT" : evt.kind === "result" ? "WIN" : "SYS"}
+      </Text>
+      <Text style={styles.eventTs}>{hh}</Text>
+      <Text style={[styles.eventMsg, { color: evt.kind === "result" ? EVENT_COLOR.result : undefined }]}>
+        {evt.text}
+      </Text>
     </Animated.View>
   );
 }
@@ -78,8 +94,21 @@ function StatBox({ label, value, color }: { label: string; value: string; color?
 export default function BattleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const battleId = parseInt(id ?? "1", 10);
-  const { battle, loading } = useBattle(battleId);
+  const { battle, loading, wsConnected } = useBattle(battleId);
+  const logScrollRef = useRef<ScrollView>(null);
+  const scrollToTop = useCallback(() => {
+    logScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, []);
+  useEffect(() => { scrollToTop(); }, [battle.events.length]);
   const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
+  const { robot } = useRobot(publicKey);
+
+  // Detect if the connected wallet's robot is in this battle
+  const commanderSide: "robot_a" | "robot_b" | null =
+    robot && battle.robotA && robot.pda === battle.robotA ? "robot_a" :
+    robot && battle.robotB && robot.pda === battle.robotB ? "robot_b" :
+    null;
+  const isCommander = commanderSide !== null && battle.status === 1;
 
   const status = STATUS[battle.status] ?? { label: "UNKNOWN", color: C.textDim };
   const isLive = battle.status === 1;
@@ -100,9 +129,12 @@ export default function BattleScreen() {
               {status.label}
             </Text>
           </View>
-          <Text style={styles.serialTxt}>
-            C:\ARENAS\BATTLE_{String(battleId).padStart(3, "0")}
-          </Text>
+          <View style={styles.headerRight}>
+            <View style={[styles.wsDot, { backgroundColor: wsConnected ? C.green : C.textDim }]} />
+            <Text style={[styles.wsLabel, { color: wsConnected ? C.green : C.textDim }]}>
+              {wsConnected ? "LIVE" : "SYNC"}
+            </Text>
+          </View>
         </View>
 
         {loading ? (
@@ -156,24 +188,32 @@ export default function BattleScreen() {
               </View>
             </View>
 
-            {/* ── Terminal event log ─────────────────────────────── */}
+            {/* ── Live event feed ────────────────────────────────── */}
             <View style={styles.terminalBox}>
               <View style={styles.terminalHeader}>
                 <View style={[styles.termDot, { backgroundColor: C.danger  }]} />
                 <View style={[styles.termDot, { backgroundColor: C.waiting }]} />
                 <View style={[styles.termDot, { backgroundColor: C.live    }]} />
                 <Text style={styles.termTitle}>BATTLE.LOG</Text>
+                {wsConnected && isLive && (
+                  <View style={styles.liveChip}>
+                    <Text style={styles.liveChipText}>● LIVE</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.terminalBody}>
-                {battle.lastEvent ? (
-                  <EventLine text={battle.lastEvent} />
+              <ScrollView
+                ref={logScrollRef}
+                style={styles.terminalScroll}
+                contentContainerStyle={styles.terminalBody}
+                showsVerticalScrollIndicator={false}
+              >
+                {battle.events.length === 0 ? (
+                  <Text style={styles.termIdle}>{">"} AWAITING COMBAT EVENTS…</Text>
                 ) : (
-                  <Text style={styles.termIdle}>
-                    {">"} AWAITING COMBAT EVENTS…
-                  </Text>
+                  battle.events.map((evt) => <EventLine key={evt.id} evt={evt} />)
                 )}
                 <Text style={styles.termCursor}>{"█"}</Text>
-              </View>
+              </ScrollView>
             </View>
 
             {/* ── On-chain stats ─────────────────────────────────── */}
@@ -209,8 +249,18 @@ export default function BattleScreen() {
               />
             </View>
 
+            {/* ── Commander panel ────────────────────────────────── */}
+            {isCommander && commanderSide && (
+              <CommandPanel
+                arenaId={battleId}
+                robotId={commanderSide}
+                myHp={commanderSide === "robot_a" ? battle.hpA : battle.hpB}
+                enemyHp={commanderSide === "robot_a" ? battle.hpB : battle.hpA}
+              />
+            )}
+
             {/* ── Bet panel ──────────────────────────────────────── */}
-            {isLive && (
+            {isLive && !isCommander && (
               <BetPanel
                 battleId={battleId}
                 publicKey={publicKey}
@@ -278,6 +328,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
   },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 5 },
+  wsDot:   { width: 6, height: 6, borderRadius: 3 },
+  wsLabel: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   staticDot: { width: 8, height: 8, borderRadius: 4 },
   statusLabel: {
@@ -362,10 +415,20 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     marginLeft: 4,
   },
-  terminalBody: { padding: 14, minHeight: 56, gap: 4 },
-  eventLine: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  eventPrompt: { fontFamily: MONO, color: C.green,  fontSize: 12 },
-  eventMsg:    { fontFamily: MONO, color: C.textSecondary, fontSize: 12, flex: 1 },
+  terminalScroll: { maxHeight: 200 },
+  terminalBody:   { padding: 12, gap: 5 },
+  liveChip: {
+    marginLeft: "auto",
+    backgroundColor: "#001a00",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  liveChipText: { fontFamily: MONO, color: C.green, fontSize: 8, fontWeight: "900" },
+  eventLine:  { flexDirection: "row", gap: 6, alignItems: "flex-start" },
+  eventKind:  { fontFamily: MONO, fontSize: 9, fontWeight: "900", width: 28, paddingTop: 1 },
+  eventTs:    { fontFamily: MONO, color: "#444466", fontSize: 9, paddingTop: 1, width: 52 },
+  eventMsg:   { fontFamily: MONO, color: C.textSecondary, fontSize: 11, flex: 1, lineHeight: 16 },
   termIdle: {
     fontFamily: MONO,
     color:      C.textDim,

@@ -59,9 +59,87 @@ function readU64LE(buf: Buffer, offset: number): number {
   return hi * 0x100000000 + lo;
 }
 
+// ─── Robot PDA ───────────────────────────────────────────────────────────────
+
+export function getRobotPDA(owner: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("robot"), owner.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+// ─── Robot struct deserialization ─────────────────────────────────────────────
+// Layout (8-byte discriminator prefix):
+//   0-7   discriminator
+//   8-39  owner (Pubkey)
+//  40-43  name length (u32 LE)
+//  44-..  name (UTF-8 string, length from above)
+//  base+0 attack (u8)
+//  base+1 defense (u8)
+//  base+2 speed (u8)
+//  base+3 wins (u32 LE)
+//  base+7 losses (u32 LE)
+// base+11 hp (u8)
+// base+12 is_active (bool)
+// base+13 bump (u8)
+
+export interface RobotState {
+  pda: string;
+  owner: string;
+  name: string;
+  attack: number;
+  defense: number;
+  speed: number;
+  wins: number;
+  losses: number;
+  hp: number;
+  isActive: boolean;
+}
+
+export async function fetchRobotState(owner: PublicKey): Promise<RobotState | null> {
+  const [robotPDA] = getRobotPDA(owner);
+  const accountInfo = await connection.getAccountInfo(robotPDA);
+  if (!accountInfo) return null;
+
+  const d = accountInfo.data as Buffer;
+  const nameLen = d.readUInt32LE(40);
+  const name = d.subarray(44, 44 + nameLen).toString("utf8");
+  const b = 44 + nameLen;
+  return {
+    pda: robotPDA.toString(),
+    owner: new PublicKey(d.subarray(8, 40)).toString(),
+    name,
+    attack: d[b],
+    defense: d[b + 1],
+    speed: d[b + 2],
+    wins: d.readUInt32LE(b + 3),
+    losses: d.readUInt32LE(b + 7),
+    hp: d[b + 11],
+    isActive: d[b + 12] !== 0,
+  };
+}
+
 // ─── Instruction discriminators ──────────────────────────────────────────────
 
 export const CLAIM_WINNINGS_DISCRIMINATOR = Buffer.from([161, 215, 24, 59, 14, 236, 242, 221]);
+export const REGISTER_ROBOT_DISCRIMINATOR = Buffer.from([197, 125, 231, 27, 239, 130, 255, 186]);
+
+export function serializeRegisterRobot(
+  name: string,
+  attack: number,
+  defense: number,
+  speed: number
+): Buffer {
+  const nameBytes = Buffer.from(name, "utf8");
+  const nameLenBuf = Buffer.alloc(4);
+  nameLenBuf.writeUInt32LE(nameBytes.length);
+  return Buffer.concat([
+    REGISTER_ROBOT_DISCRIMINATOR,
+    nameLenBuf,
+    nameBytes,
+    Buffer.from([attack, defense, speed]),
+  ]);
+}
 
 // ─── Bet struct deserialization ───────────────────────────────────────────────
 // Layout (8-byte discriminator prefix):
@@ -99,6 +177,8 @@ export async function fetchBattleState(battleId: number) {
   return {
     battleId,
     pda: battlePDA.toString(),
+    robotA: new PublicKey(d.subarray(16, 48)).toString(),
+    robotB: new PublicKey(d.subarray(48, 80)).toString(),
     hpA: d[136],
     hpB: d[137],
     status: d[138],

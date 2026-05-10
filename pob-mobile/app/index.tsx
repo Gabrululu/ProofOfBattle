@@ -1,11 +1,14 @@
 import { useRef, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Animated,
+  StyleSheet, SafeAreaView, Animated, ActivityIndicator,
 } from "react-native";
 import { useRouter, Href } from "expo-router";
-import { RobotFace } from "../components/RobotFace";
-import { C, MONO }   from "../lib/theme";
+import { RobotFace }  from "../components/RobotFace";
+import { WalletButton } from "../components/WalletButton";
+import { useWallet }  from "../hooks/useWallet";
+import { useRobot }   from "../hooks/useRobot";
+import { C, MONO }    from "../lib/theme";
 
 const BATTLES = [
   { id: 1, sublabel: "Arena Alpha", status: "ACTIVE"  as const },
@@ -54,6 +57,72 @@ function TerminalBoot() {
   );
 }
 
+function MyRobotSection() {
+  const router = useRouter();
+  const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
+  const { robot, loading } = useRobot(publicKey);
+
+  return (
+    <View style={styles.myRobotSection}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>MY ROBOT</Text>
+        <View style={styles.sectionLine} />
+      </View>
+
+      {!publicKey ? (
+        <View style={styles.myRobotCard}>
+          <Text style={styles.myRobotHint}>Connect wallet to register your robot</Text>
+          <WalletButton
+            publicKey={publicKey}
+            connecting={connecting}
+            isWebPreview={isWebPreview}
+            onConnect={connect}
+            onDisconnect={disconnect}
+          />
+        </View>
+      ) : loading ? (
+        <View style={styles.myRobotCard}>
+          <ActivityIndicator color={C.purple} />
+        </View>
+      ) : robot ? (
+        <TouchableOpacity
+          style={[styles.myRobotCard, styles.myRobotCardActive]}
+          onPress={() => router.push("/robot" as Href)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.myRobotTop}>
+            <RobotFace size={48} primaryColor={C.purple} accentColor={C.green} animated />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={styles.myRobotName}>{robot.name}</Text>
+              <View style={styles.myRobotStats}>
+                <Text style={[styles.statChip, { color: C.danger }]}>ATK {robot.attack}</Text>
+                <Text style={[styles.statChip, { color: C.teal }]}>DEF {robot.defense}</Text>
+                <Text style={[styles.statChip, { color: C.waiting }]}>SPD {robot.speed}</Text>
+              </View>
+            </View>
+            <View style={styles.myRobotRecord}>
+              <Text style={[styles.recordNum, { color: C.green }]}>{robot.wins}W</Text>
+              <Text style={[styles.recordNum, { color: C.danger }]}>{robot.losses}L</Text>
+            </View>
+          </View>
+          <Text style={styles.myRobotCta}>Tap to view → ENTER BATTLE</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.myRobotCard}
+          onPress={() => router.push("/robot" as Href)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.myRobotHint}>No robot registered yet</Text>
+          <View style={styles.forgeBtn}>
+            <Text style={styles.forgeBtnText}>⚔ FORGE YOUR ROBOT</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
 
@@ -72,6 +141,9 @@ export default function HomeScreen() {
 
         {/* BIOS-style terminal boot */}
         <TerminalBoot />
+
+        {/* My Robot */}
+        <MyRobotSection />
 
         {/* Section header */}
         <View style={styles.sectionHeader}>
@@ -254,4 +326,38 @@ const styles = StyleSheet.create({
     fontSize:   9,
     letterSpacing: 4,
   },
+
+  // My Robot section
+  myRobotSection: { gap: 10 },
+  myRobotCard: {
+    backgroundColor: C.bgCard,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 16,
+    gap: 12,
+    alignItems: "center",
+  },
+  myRobotCardActive: {
+    borderColor: C.purple,
+    shadowColor: C.purple,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  myRobotTop:   { flexDirection: "row", alignItems: "center", gap: 14, width: "100%" },
+  myRobotName:  { color: C.textPrimary, fontSize: 16, fontWeight: "900", letterSpacing: 2 },
+  myRobotStats: { flexDirection: "row", gap: 8 },
+  statChip:     { fontFamily: MONO, fontSize: 10, fontWeight: "700" },
+  myRobotRecord:{ alignItems: "center", gap: 2 },
+  recordNum:    { fontFamily: MONO, fontSize: 12, fontWeight: "900" },
+  myRobotHint:  { color: C.textDim, fontSize: 12, fontFamily: MONO },
+  myRobotCta:   { fontFamily: MONO, color: C.textDim, fontSize: 9, letterSpacing: 1 },
+  forgeBtn: {
+    backgroundColor: C.purple,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  forgeBtnText: { color: "#fff", fontWeight: "900", fontSize: 12, letterSpacing: 2 },
 });
