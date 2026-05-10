@@ -17,6 +17,11 @@ class Settings(BaseSettings):
 
     WEBOTS_HOST: str = "127.0.0.1"
     WEBOTS_PORT: int = 5005
+    # Set this to use WebSocket mode instead of raw TCP.
+    # Format: wss://xyz.trycloudflare.com  (Cloudflare tunnel)
+    #      or ws://host:port               (local ws_bridge.py)
+    # When set, WEBOTS_HOST/PORT are ignored for the main connection.
+    WEBOTS_WS_URL: str = ""
 
     class Config:
         env_file = ".env"
