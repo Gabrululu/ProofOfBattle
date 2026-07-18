@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator,
+  SafeAreaView, ScrollView, ActivityIndicator, Alert,
 } from "react-native";
 import { Stack } from "expo-router";
 import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
@@ -9,7 +9,7 @@ import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import {
   connection, getRobotPDA, serializeRegisterRobot,
 } from "../lib/program";
-import { PROGRAM_ID } from "../lib/constants";
+import { PROGRAM_ID, BRIDGE_BASE_URL } from "../lib/constants";
 import { useWallet } from "../hooks/useWallet";
 import { useRobot } from "../hooks/useRobot";
 import { WalletButton } from "../components/WalletButton";
@@ -23,12 +23,14 @@ const PRESETS = [
   { id: "berserker", label: "BERSERKER",  attack: 100, defense: 45, speed: 65, desc: "Pure aggression"    },
 ];
 
+const CATEGORIES = ["SUMO", "COMBAT", "LINE FOLLOW", "MAZE", "BATTLE ROYALE"] as const;
+
 function StatBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View style={sty.statRow}>
       <Text style={sty.statLabel}>{label}</Text>
       <View style={sty.barBg}>
-        <View style={[sty.barFill, { width: `${value}%`, backgroundColor: color }]} />
+        <View style={[sty.barFill, { width: `${value}%` as unknown as number, backgroundColor: color }]} />
       </View>
       <Text style={[sty.statValue, { color }]}>{value}</Text>
     </View>
@@ -40,13 +42,20 @@ export default function RobotScreen() {
   const { robot, loading, reload } = useRobot(publicKey);
   const [name, setName] = useState("");
   const [preset, setPreset] = useState(PRESETS[0]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [minting, setMinting] = useState(false);
+
+  const toggleCategory = (cat: string) => {
+    setCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
 
   const registerRobot = async () => {
     if (!publicKey) return;
     const trimmed = name.trim();
-    if (!trimmed || trimmed.length > 20) {
-      Alert.alert("Name required", "Enter a name between 1 and 20 characters.");
+    if (!trimmed || trimmed.length > 32) {
+      Alert.alert("Name required", "Enter a name between 1 and 32 characters.");
       return;
     }
     setMinting(true);
@@ -54,7 +63,7 @@ export default function RobotScreen() {
       const [robotPDA] = getRobotPDA(publicKey);
       const data = serializeRegisterRobot(trimmed, preset.attack, preset.defense, preset.speed);
 
-      await transact(async (wallet: any) => {
+      await transact(async (wallet: Parameters<Parameters<typeof transact>[0]>[0]) => {
         const { blockhash } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({
@@ -69,6 +78,21 @@ export default function RobotScreen() {
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(sig, "confirmed");
+
+        // Save profile to bridge (non-critical)
+        fetch(`${BRIDGE_BASE_URL}/api/robot-profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            owner: publicKey.toBase58(),
+            name: trimmed,
+            attack: preset.attack,
+            defense: preset.defense,
+            speed: preset.speed,
+            categories,
+          }),
+        }).catch(() => {});
+
         toast.success(`${trimmed} forged on-chain ⚔`, sig.slice(0, 16) + "…");
         reload();
       });
@@ -152,7 +176,7 @@ export default function RobotScreen() {
               placeholderTextColor={C.textDim}
               value={name}
               onChangeText={setName}
-              maxLength={20}
+              maxLength={32}
               autoCapitalize="characters"
             />
 
@@ -177,6 +201,29 @@ export default function RobotScreen() {
               <StatBar label="DEF" value={preset.defense} color={C.teal}    />
               <StatBar label="SPD" value={preset.speed}   color={C.waiting} />
             </View>
+
+            {/* Competition categories */}
+            <Text style={sty.fieldLabel}>COMPETITION CATEGORIES</Text>
+            <Text style={sty.fieldHint}>Select categories this robot is designed for</Text>
+            <View style={sty.catGrid}>
+              {CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[sty.catChip, categories.includes(cat) && sty.catChipActive]}
+                  onPress={() => toggleCategory(cat)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[sty.catChipText, categories.includes(cat) && { color: "#fff" }]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {categories.length > 0 && (
+              <Text style={sty.catSelected}>
+                Selected: {categories.join(" · ")}
+              </Text>
+            )}
 
             <TouchableOpacity
               style={[sty.forgeBtn, minting && { opacity: 0.6 }]}
@@ -205,12 +252,8 @@ const sty = StyleSheet.create({
 
   // Existing robot card
   robotCard: {
-    backgroundColor: C.bgCard,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 18,
-    gap: 16,
+    backgroundColor: C.bgCard, borderRadius: 14,
+    borderWidth: 1, borderColor: C.border, padding: 18, gap: 16,
   },
   robotHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   robotName:   { color: C.textPrimary, fontSize: 22, fontWeight: "900", letterSpacing: 3 },
@@ -222,38 +265,27 @@ const sty = StyleSheet.create({
   recordDivider:{ width: 1, backgroundColor: C.border },
   recordVal:    { fontFamily: MONO, fontSize: 24, fontWeight: "900" },
   recordLbl:    { fontFamily: MONO, color: C.textDim, fontSize: 8, letterSpacing: 2 },
-
-  pdaText: { fontFamily: MONO, color: C.textDim, fontSize: 9, textAlign: "center" },
+  pdaText:      { fontFamily: MONO, color: C.textDim, fontSize: 9, textAlign: "center" },
 
   // Form
   form:       { gap: 14 },
   formTitle:  { color: C.textPrimary, fontSize: 20, fontWeight: "900", letterSpacing: 3 },
   formSub:    { color: C.textSecondary, fontSize: 12 },
   fieldLabel: { fontFamily: MONO, color: C.textDim, fontSize: 9, fontWeight: "800", letterSpacing: 3 },
+  fieldHint:  { color: C.textDim, fontSize: 11, marginTop: -8 },
   input: {
-    backgroundColor: C.bgCard,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 14,
-    color: C.textPrimary,
-    fontFamily: MONO,
-    fontSize: 16,
-    letterSpacing: 2,
+    backgroundColor: C.bgCard, borderRadius: 8, borderWidth: 1,
+    borderColor: C.border, padding: 14, color: C.textPrimary,
+    fontFamily: MONO, fontSize: 16, letterSpacing: 2,
   },
   presetGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   presetBtn: {
-    width: "47%",
-    backgroundColor: C.bgCard,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 12,
-    gap: 4,
+    width: "47%", backgroundColor: C.bgCard, borderRadius: 8,
+    borderWidth: 1, borderColor: C.border, padding: 12, gap: 4,
   },
   presetBtnActive: { backgroundColor: C.purple, borderColor: C.purple },
-  presetLabel: { color: C.textSecondary, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
-  presetDesc:  { color: C.textDim, fontSize: 10 },
+  presetLabel:     { color: C.textSecondary, fontWeight: "900", fontSize: 11, letterSpacing: 1 },
+  presetDesc:      { color: C.textDim, fontSize: 10 },
 
   // Stats
   stats:      { gap: 8 },
@@ -264,16 +296,23 @@ const sty = StyleSheet.create({
   barFill:    { height: "100%", borderRadius: 3 },
   statValue:  { fontFamily: MONO, fontSize: 11, fontWeight: "700", width: 28, textAlign: "right" },
 
+  // Categories
+  catGrid:      { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  catChip: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 20,
+    paddingVertical: 7, paddingHorizontal: 14,
+    backgroundColor: C.bgCard,
+  },
+  catChipActive: { backgroundColor: C.purple, borderColor: C.purple },
+  catChipText:   { fontFamily: MONO, color: C.textDim, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
+  catSelected:   { fontFamily: MONO, color: C.purple, fontSize: 10, letterSpacing: 0.5 },
+
+  // Forge button
   forgeBtn: {
-    backgroundColor: C.purple,
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: C.purple,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-    marginTop: 4,
+    backgroundColor: C.purple, borderRadius: 10,
+    padding: 16, alignItems: "center",
+    shadowColor: C.purple, shadowOpacity: 0.4, shadowRadius: 10,
+    elevation: 6, marginTop: 4,
   },
   forgeBtnText: { color: "#fff", fontWeight: "900", fontSize: 14, letterSpacing: 2 },
 });

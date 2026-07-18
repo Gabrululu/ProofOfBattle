@@ -12,9 +12,11 @@ interface Props {
   totalBetsA: number;
   totalBetsB: number;
   isFinished: boolean;
+  nameA?: string;
+  nameB?: string;
 }
 
-export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished }: Props) {
+export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, nameA = "UNIT A", nameB = "UNIT B" }: Props) {
   const { publicKey, connected } = useWallet();
   const { setVisible } = useWalletModal();
   const program = useProgram();
@@ -79,14 +81,14 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished }: Pr
 
       {/* Odds bar */}
       <div className="flex items-center gap-2">
-        <span className="text-[9px] font-bold text-blue-400 w-6">{pctA}%</span>
+        <span className="text-[9px] font-bold text-blue-400 truncate max-w-[80px]">{nameA} {pctA}%</span>
         <div className="flex-1 h-1.5 bg-gray-900 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-600 to-red-600 rounded-full transition-all duration-500"
+            className="h-full rounded-full transition-all duration-500"
             style={{ background: `linear-gradient(to right, #2563eb ${pctA}%, #dc2626 ${pctA}%)` }}
           />
         </div>
-        <span className="text-[9px] font-bold text-red-400 w-6 text-right">{pctB}%</span>
+        <span className="text-[9px] font-bold text-red-400 truncate max-w-[80px] text-right">{pctB}% {nameB}</span>
       </div>
 
       {/* Bet buttons */}
@@ -97,14 +99,14 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished }: Pr
             disabled={loading !== null}
             className="py-2.5 rounded border border-blue-900/60 bg-blue-950/30 text-blue-400 hover:bg-blue-900/40 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
           >
-            {loading === "a" ? "◌ SENDING…" : `BET [A] · ${BET_SOL} SOL`}
+            {loading === "a" ? "◌ SENDING…" : `▲ ${nameA}`}
           </button>
           <button
             onClick={() => bet(1)}
             disabled={loading !== null}
             className="py-2.5 rounded border border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/40 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
           >
-            {loading === "b" ? "◌ SENDING…" : `BET [B] · ${BET_SOL} SOL`}
+            {loading === "b" ? "◌ SENDING…" : `▲ ${nameB}`}
           </button>
         </div>
       ) : (

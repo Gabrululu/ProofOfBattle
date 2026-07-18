@@ -193,6 +193,24 @@ class SolanaService:
 
     # ─── Reads ────────────────────────────────────────────────────────────────
 
+    async def fetch_robot_state(self, owner: str, name: str) -> dict | None:
+        """Fetch wins/losses/hp for a registered robot. Returns None on failure."""
+        await self._ensure_program()
+        if self._mock:
+            return None
+        try:
+            owner_pubkey = Pubkey.from_string(owner)
+            robot_pda, _ = self._robot_pda(owner_pubkey, name)
+            account = await self._program.account["robot"].fetch(robot_pda)
+            return {
+                "wins":      account.wins,
+                "losses":    account.losses,
+                "hp":        account.hp,
+                "is_active": account.is_active,
+            }
+        except Exception:
+            return None
+
     async def fetch_match_state(self, arena_id: int) -> dict:
         await self._ensure_program()
 

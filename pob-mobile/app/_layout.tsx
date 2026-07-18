@@ -22,8 +22,11 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: "#050510" },
         }}
       >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="home"  options={{ title: "PROOF OF BATTLE", headerBackVisible: false }} />
+        <Stack.Screen name="index"       options={{ headerShown: false }} />
+        <Stack.Screen name="home"        options={{ title: "PROOF OF BATTLE", headerBackVisible: false }} />
+        <Stack.Screen name="compete"     options={{ title: "CREATE COMPETITION" }} />
+        <Stack.Screen name="leaderboard" options={{ title: "LEADERBOARD" }} />
+        <Stack.Screen name="history"     options={{ title: "MY BATTLES"  }} />
       </Stack>
     </WalletProvider>
   );

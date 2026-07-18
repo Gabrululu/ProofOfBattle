@@ -8,7 +8,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -28,6 +28,10 @@ agent = BattleAgent(settings.VIRTUALS_API_KEY, settings.VIRTUALS_AGENT_ID)
 
 # Active WebSocket connections (arena_id → list of sockets)
 arena_subscribers: dict[str, list[WebSocket]] = {}
+
+# ── In-memory metadata stores ─────────────────────────────────────────────────
+competitions: dict[int, dict] = {}
+robot_profiles: dict[str, dict] = {}  # owner_pubkey → profile
 
 
 @asynccontextmanager
@@ -61,6 +65,40 @@ class SetupRequest(BaseModel):
     robot_b_attack: int = 70
     robot_b_defense: int = 80
     robot_b_speed: int = 65
+
+
+class TeamMemberModel(BaseModel):
+    wallet: str = ""
+    alias: str = ""
+    share: int = 0  # percentage
+
+
+class CompetitionRequest(BaseModel):
+    battle_id: int
+    name: str
+    location: str
+    creator: str = ""
+    is_team: bool = False
+    team_name: str | None = None
+    members: list[TeamMemberModel] = []
+    # Robot combatants
+    robot_a_name: str = "UNIT_ALPHA"
+    robot_a_attack: int = 70
+    robot_a_defense: int = 60
+    robot_a_speed: int = 65
+    robot_b_name: str = "UNIT_BETA"
+    robot_b_attack: int = 70
+    robot_b_defense: int = 60
+    robot_b_speed: int = 65
+
+
+class RobotProfileRequest(BaseModel):
+    owner: str
+    name: str
+    attack: int = 70
+    defense: int = 60
+    speed: int = 65
+    categories: list[str] = []
 
 
 # ─── REST ────────────────────────────────────────────────────────────────────
@@ -100,7 +138,171 @@ async def admin_setup(req: SetupRequest):
 async def admin_start_battle(battle_id: int):
     """Transition battle from Waiting → Active so betting closes and combat begins."""
     tx = await solana.start_battle(battle_id)
+    if battle_id in competitions:
+        competitions[battle_id]["status"] = "active"
     return {"tx": tx, "battle_id": battle_id}
+
+
+# ── Competition metadata API ──────────────────────────────────────────────────
+
+@app.post("/api/competition")
+async def create_competition_meta(req: CompetitionRequest):
+    competitions[req.battle_id] = {
+        "battle_id": req.battle_id,
+        "name": req.name,
+        "location": req.location,
+        "creator": req.creator,
+        "is_team": req.is_team,
+        "team_name": req.team_name,
+        "members": [m.model_dump() for m in req.members],
+        "status": "waiting",
+        "viewer_count": 0,
+        # Robot combatant info
+        "robot_a_name": req.robot_a_name,
+        "robot_a_attack": req.robot_a_attack,
+        "robot_a_defense": req.robot_a_defense,
+        "robot_a_speed": req.robot_a_speed,
+        "robot_b_name": req.robot_b_name,
+        "robot_b_attack": req.robot_b_attack,
+        "robot_b_defense": req.robot_b_defense,
+        "robot_b_speed": req.robot_b_speed,
+    }
+    log.info("Competition registered: %s (id=%d)", req.name, req.battle_id)
+    return competitions[req.battle_id]
+
+
+@app.get("/api/competitions")
+async def list_competitions_meta():
+    return list(competitions.values())
+
+
+@app.get("/api/competition/{battle_id}")
+async def get_competition_meta(battle_id: int):
+    return competitions.get(battle_id, {})
+
+
+@app.post("/api/robot-profile")
+async def save_robot_profile(req: RobotProfileRequest):
+    robot_profiles[req.owner] = {
+        "owner": req.owner,
+        "name": req.name,
+        "attack": req.attack,
+        "defense": req.defense,
+        "speed": req.speed,
+        "categories": req.categories,
+    }
+    return robot_profiles[req.owner]
+
+
+@app.get("/api/robot-profile/{owner}")
+async def get_robot_profile(owner: str):
+    return robot_profiles.get(owner, {})
+
+
+@app.get("/api/robot-profiles")
+async def list_robot_profiles():
+    return list(robot_profiles.values())
+
+
+@app.get("/api/leaderboard")
+async def get_leaderboard():
+    """Merge bridge profiles with on-chain wins/losses, sort by wins desc."""
+    entries = []
+    for profile in robot_profiles.values():
+        entry = dict(profile)
+        on_chain = await solana.fetch_robot_state(profile["owner"], profile["name"])
+        if on_chain:
+            entry["wins"]      = on_chain["wins"]
+            entry["losses"]    = on_chain["losses"]
+            entry["hp"]        = on_chain["hp"]
+            entry["is_active"] = on_chain["is_active"]
+        else:
+            entry.setdefault("wins",      0)
+            entry.setdefault("losses",    0)
+            entry.setdefault("hp",        100)
+            entry.setdefault("is_active", False)
+        entries.append(entry)
+    entries.sort(key=lambda e: (e["wins"], -e["losses"]), reverse=True)
+    return entries
+
+
+@app.get("/api/battles/history/{owner}")
+async def get_battle_history(owner: str):
+    """Return competitions created by this owner, most recent first."""
+    history = [
+        comp for comp in competitions.values()
+        if comp.get("creator") == owner
+    ]
+    history.sort(key=lambda c: c["battle_id"], reverse=True)
+    return history
+
+
+@app.post("/api/competition/{battle_id}/start")
+async def start_competition_flow(
+    battle_id: int,
+    creator: str = Query(default=""),
+):
+    """One-click: register robots on-chain, create battle, transition Waiting→Active."""
+    comp = competitions.get(battle_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    if creator and comp.get("creator") and comp["creator"] != creator:
+        raise HTTPException(status_code=403, detail="Only the creator can start this battle")
+
+    results: dict = {}
+
+    # Register robot A (safe to re-call if already exists in mock mode)
+    try:
+        results["tx_robot_a"] = await solana.register_robot(
+            comp["robot_a_name"],
+            comp["robot_a_attack"],
+            comp["robot_a_defense"],
+            comp["robot_a_speed"],
+        )
+    except Exception as e:
+        results["tx_robot_a"] = f"skip:{str(e)[:40]}"
+
+    # Register robot B
+    try:
+        results["tx_robot_b"] = await solana.register_robot(
+            comp["robot_b_name"],
+            comp["robot_b_attack"],
+            comp["robot_b_defense"],
+            comp["robot_b_speed"],
+        )
+    except Exception as e:
+        results["tx_robot_b"] = f"skip:{str(e)[:40]}"
+
+    # Create battle account
+    try:
+        results["tx_battle"] = await solana.create_battle(
+            battle_id, 0,
+            comp["robot_a_name"],
+            comp["robot_b_name"],
+        )
+    except Exception as e:
+        results["tx_battle"] = f"skip:{str(e)[:40]}"
+
+    # Transition Waiting → Active
+    try:
+        results["tx_start"] = await solana.start_battle(battle_id)
+        competitions[battle_id]["status"] = "active"
+        results["success"] = True
+        log.info("Battle %d started by %s", battle_id, creator or "admin")
+    except Exception as e:
+        results["success"] = False
+        results["error"] = str(e)
+        return results
+
+    # Notify all subscribers watching this arena
+    await broadcast(str(battle_id), {
+        "type": "battle_started",
+        "battle_id": battle_id,
+        "robot_a": comp["robot_a_name"],
+        "robot_b": comp["robot_b_name"],
+    })
+
+    return results
 
 
 # ─── WebSocket: Seeker voice commands ────────────────────────────────────────
@@ -157,11 +359,19 @@ async def handle_voice_command(arena_id: str, robot_id: str, text: str, ws: WebS
 async def arena_ws(ws: WebSocket, arena_id: str):
     await ws.accept()
     arena_subscribers.setdefault(arena_id, []).append(ws)
+    bid = int(arena_id) if arena_id.isdigit() else None
+    if bid is not None and bid in competitions:
+        competitions[bid]["viewer_count"] += 1
     try:
         while True:
             await asyncio.sleep(60)  # keep-alive
     except WebSocketDisconnect:
-        arena_subscribers[arena_id].remove(ws)
+        if ws in arena_subscribers.get(arena_id, []):
+            arena_subscribers[arena_id].remove(ws)
+        if bid is not None and bid in competitions:
+            competitions[bid]["viewer_count"] = max(
+                0, competitions[bid]["viewer_count"] - 1
+            )
 
 
 # ─── Webots event loop ───────────────────────────────────────────────────────
@@ -230,6 +440,9 @@ async def handle_match_over(event: dict):
     winner_side = 0 if winner_str == "robot_a" else 1
 
     log.info("Match over: arena=%s winner=%s (side=%d)", arena_id, winner_str, winner_side)
+    bid = int(arena_id) if arena_id.isdigit() else None
+    if bid is not None and bid in competitions:
+        competitions[bid]["status"] = "finished"
 
     tx_sig = await solana.resolve_battle(
         arena_id=int(arena_id),

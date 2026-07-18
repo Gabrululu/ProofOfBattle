@@ -34,3 +34,45 @@ export interface MatchOverEvent {
 }
 
 export type ArenaEvent = DamageEvent | SensorUpdate | MatchOverEvent;
+
+// ── New types for competition & robot management ─────────────────────────────
+
+export interface TeamMember {
+  wallet: string;
+  alias: string;
+  share: number; // 0-100 percentage
+}
+
+export interface RobotInfo {
+  name: string;
+  attack: number;
+  defense: number;
+  speed: number;
+  categories?: string[];
+}
+
+export interface CompetitionMeta {
+  battleId: number;
+  name: string;
+  location: string;
+  creator: string;
+  isTeam: boolean;
+  teamName?: string;
+  members?: TeamMember[];
+  status: "waiting" | "active" | "finished";
+  viewerCount: number;
+  robotA?: RobotInfo;
+  robotB?: RobotInfo;
+}
+
+export const ROBOT_CATEGORIES = [
+  "SUMO",
+  "COMBAT",
+  "LINE FOLLOW",
+  "MAZE",
+  "BATTLE ROYALE",
+] as const;
+
+export type RobotCategory = (typeof ROBOT_CATEGORIES)[number];
+
+export type AppView = "live" | "arena" | "robot" | "compete" | "rank" | "hist";

@@ -21,9 +21,11 @@ interface Props {
   publicKey:  PublicKey | null;
   totalBetsA: number;
   totalBetsB: number;
+  nameA?: string;
+  nameB?: string;
 }
 
-export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props) {
+export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB, nameA = "ROBOT A", nameB = "ROBOT B" }: Props) {
   const { connect, connecting } = useWallet();
   const [side,    setSide]    = useState<0 | 1 | null>(null);
   const [amount,  setAmount]  = useState("0.1");
@@ -94,12 +96,12 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
       {/* Pool bar — always visible so spectators see the odds before connecting */}
       <View style={styles.poolSection}>
         <View style={styles.poolLabels}>
-          <Text style={[styles.poolSide, { color: C.robotA }]}>ROBOT A  {oddsA}%</Text>
+          <Text style={[styles.poolSide, { color: C.robotA }]} numberOfLines={1}>{nameA}  {oddsA}%</Text>
           <Text style={[styles.poolTotal, { color: C.teal }]}>
             {(totalPool / LAMPORTS_PER_SOL).toFixed(3)} SOL
           </Text>
-          <Text style={[styles.poolSide, { color: C.robotB, textAlign: "right" }]}>
-            {oddsB}%  ROBOT B
+          <Text style={[styles.poolSide, { color: C.robotB, textAlign: "right" }]} numberOfLines={1}>
+            {oddsB}%  {nameB}
           </Text>
         </View>
         <View style={styles.poolBar}>
@@ -134,7 +136,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
               onPress={() => setSide(0)}
               activeOpacity={0.8}
             >
-              <Text style={styles.sideBtnLabel}>ROBOT A</Text>
+              <Text style={styles.sideBtnLabel} numberOfLines={1}>{nameA}</Text>
               <Text style={[styles.sideOdds, side === 0 && { color: "#fff" }]}>
                 {oddsA}% of pool
               </Text>
@@ -150,7 +152,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
               onPress={() => setSide(1)}
               activeOpacity={0.8}
             >
-              <Text style={styles.sideBtnLabel}>ROBOT B</Text>
+              <Text style={styles.sideBtnLabel} numberOfLines={1}>{nameB}</Text>
               <Text style={[styles.sideOdds, side === 1 && { color: "#fff" }]}>
                 {oddsB}% of pool
               </Text>
@@ -195,7 +197,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB }: Props)
             ) : (
               <Text style={styles.betBtnText}>
                 {side !== null
-                  ? `BET ${amount} SOL ON ROBOT ${side === 0 ? "A" : "B"} →`
+                  ? `BET ${amount} SOL ON ${side === 0 ? nameA : nameB} →`
                   : "SELECT A ROBOT TO BET"}
               </Text>
             )}

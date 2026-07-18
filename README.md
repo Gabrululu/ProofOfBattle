@@ -4,7 +4,7 @@
 
 An AI-powered robot combat platform where players register fighters on Solana, command them using natural language via a mobile app, and every hit is recorded as an immutable on-chain transaction. Spectators can bet SOL on the outcome and claim trustless payouts — no intermediary holds the funds.
 
-**Built for Hack Dev3Pack · Solana Mobile Track + Virtuals Protocol — Best AI Agent into Physical World**
+**Built for Hack Dev3Pack.**
 
 ---
 
@@ -99,13 +99,18 @@ ProofOfBattle/
 │
 ├── pob-mobile/                       # Android app (Expo / React Native)
 │   ├── app/
-│   │   ├── index.tsx                 # Home: live arenas + robot card
-│   │   ├── robot.tsx                 # Register robot on-chain
+│   │   ├── index.tsx                 # Splash / wallet connect
+│   │   ├── home.tsx                  # Live arenas + robot card + filters
+│   │   ├── robot.tsx                 # Register & manage robot on-chain
+│   │   ├── compete.tsx               # Create competition + robot picker
+│   │   ├── leaderboard.tsx           # Global rankings with W/L records
+│   │   ├── history.tsx               # Personal battle history
 │   │   └── battle/[id].tsx           # Live battle view + commander panel
 │   ├── components/
 │   │   ├── CommandPanel.tsx          # Voice PTT + quick-command chips
 │   │   ├── BetPanel.tsx              # Place SOL bets via MWA
-│   │   └── ClaimPanel.tsx            # Claim winnings after battle
+│   │   ├── ClaimPanel.tsx            # Claim winnings after battle
+│   │   └── Toast.tsx                 # In-app notification toasts
 │   ├── hooks/
 │   │   ├── useWallet.native.ts       # MWA transact() + authorize()
 │   │   ├── useBattle.ts              # WS event feed, auto-reconnect
@@ -116,9 +121,44 @@ ProofOfBattle/
 │
 └── app/                              # React web viewer (Vite)
     └── src/
-        ├── components/               # HealthBar, Arena, VoiceControl
+        ├── views/
+        │   ├── StreamBrowser.tsx     # Live arena list + filters + notifications
+        │   ├── RobotRegister.tsx     # Robot registration form
+        │   ├── CreateCompetition.tsx # Competition creation with robot picker
+        │   ├── Leaderboard.tsx       # Global rankings
+        │   └── History.tsx           # Personal battle history
+        ├── components/               # HealthBar, Arena, BettingPanel, VoiceControl
         └── hooks/useWebSocket.ts
 ```
+
+---
+
+## Features
+
+### Competition Management
+Creators open a competition from the mobile app or web, set a name, location, and pick their robots (auto-filled from their registered profile or by searching another wallet). The lobby shows a **WAITING** status until the creator taps **⚔ INICIAR BATALLA**, which atomically registers both robots on-chain and transitions the battle to **ACTIVE**.
+
+### Robot Profiles & Stats
+Every robot is registered with three combat attributes — **ATK · DEF · SPD** — and optional category tags (SUMO, COMBAT, LINE FOLLOW, etc.). Stats are stored in the bridge profile and mirrored to the on-chain PDA. The arena view shows a mirrored stat bar comparison between both combatants before and during the fight.
+
+### Live Arenas & Filters
+The arena browser polls every 5 seconds and lets users filter by **ALL / LIVE / WAIT / ENDED** with live count badges. Each card shows the competition name, location, team members (if a team battle), viewer count, and status.
+
+### Leaderboard
+Global robot rankings sorted by wins. Each entry shows W/L record, win rate, stat bars, and category chips. On-chain W/L data is merged from the robot PDA via anchorpy — bridge falls back to cached data when in mock mode.
+
+### Battle History
+Users can view every competition they created, with combatant names, stats, and status. Active battles can be joined; finished battles can be replayed. Accessible via the **📜 HIST** tab (web) or the **📜** button in the mobile arena browser header.
+
+### Push Notifications
+**Web:** The stream browser detects when a followed competition transitions `waiting → active` and fires a browser `Notification`. A **🔔 ALERTS** button requests permission — once granted, users see **🔔 ON**.
+
+**Mobile:** The same polling loop calls an in-app toast (`⚔ {name} is now LIVE!`) when any competition goes live — no OS permissions required.
+
+### Share Battle Link
+**Web:** A **⤴ SHARE** button inside the arena view calls `navigator.share()` on supported browsers; falls back to clipboard copy with a **✓ COPIED** confirmation.
+
+**Mobile:** A **⤴ SHARE** button in the battle screen header calls the native `Share.share()` sheet with a direct arena URL.
 
 ---
 
@@ -137,6 +177,22 @@ ProofOfBattle/
 | `claim_winnings` | Winning bettors claim proportional payout (95 % of pool) |
 
 Payout formula: `(your_bet / winning_pool) × total_pool × 0.95` — calculated on-chain, no off-chain math.
+
+---
+
+## Bridge API
+
+| Endpoint | Description |
+|---|---|
+| `POST /api/competition` | Register a new competition |
+| `GET /api/competitions` | List all competitions |
+| `GET /api/competition/{id}` | Get competition metadata (robot names, stats) |
+| `POST /api/competition/{id}/start` | One-click start: registers robots + activates battle |
+| `POST /api/robot-profile` | Save robot profile (ATK/DEF/SPD + categories) |
+| `GET /api/robot-profile/{owner}` | Get profile by wallet address |
+| `GET /api/leaderboard` | Ranked list merged with on-chain W/L data |
+| `GET /api/battles/history/{owner}` | Competitions created by a wallet |
+| `GET /match/{id}` | Live on-chain match state |
 
 ---
 
@@ -189,6 +245,9 @@ All on-chain actions go through MWA `transact()` — the wallet app (Phantom / S
   "robot_b": { "hp": 70, "position": { "x": -0.2, "y": 0.4 } } }
 
 { "type": "match_over", "winner": 0, "winner_label": "robot_a", "tx": "..." }
+
+{ "type": "battle_started", "battle_id": 1,
+  "robot_a": "UNIT_ALPHA", "robot_b": "UNIT_BETA" }
 ```
 
 ---
@@ -276,9 +335,14 @@ Requires Phantom or Solflare installed from Google Play to connect a wallet.
 ### 5 · Start a Battle
 
 ```bash
+# Register robots and open the battle
 curl -X POST https://proofofbattle-production.up.railway.app/admin/setup
+
+# Transition Waiting → Active
 curl -X POST https://proofofbattle-production.up.railway.app/admin/battle/1/start
 ```
+
+Or use the in-app **⚔ INICIAR BATALLA** button (visible only to the competition creator).
 
 ---
 
@@ -330,4 +394,4 @@ https://proofofbattle-production.up.railway.app
 | Tunnel | Cloudflare Tunnel (ws_bridge.py) |
 | Mobile | React Native · Expo · Solana Mobile Wallet Adapter v2 |
 | APK Build | EAS Build |
-| Web UI | React · Vite · TypeScript |
+| Web UI | React · Vite · TypeScript · Tailwind CSS |

@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, Animated, Dimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Href } from "expo-router";
 import { RobotFace } from "../components/RobotFace";
 import { C, MONO } from "../lib/theme";
 
@@ -88,7 +88,7 @@ export default function LandingScreen() {
     Animated.sequence([
       Animated.timing(btnScale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
       Animated.timing(btnScale, { toValue: 1,    duration: 80, useNativeDriver: true }),
-    ]).start(() => router.replace("/home"));
+    ]).start(() => router.replace("/home" as Href));
   };
 
   return (

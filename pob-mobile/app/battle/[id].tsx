@@ -1,8 +1,9 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { useLocalSearchParams, Stack } from "expo-router";
 import {
   View, Text, ScrollView, StyleSheet,
   SafeAreaView, Animated, ActivityIndicator,
+  TouchableOpacity, Share,
 } from "react-native";
 import type { BattleEvent } from "../../hooks/useBattle";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -14,6 +15,7 @@ import { BetPanel }     from "../../components/BetPanel";
 import { ClaimPanel }   from "../../components/ClaimPanel";
 import { RobotFace }    from "../../components/RobotFace";
 import { CommandPanel } from "../../components/CommandPanel";
+import { BRIDGE_BASE_URL } from "../../lib/constants";
 import { C, MONO }      from "../../lib/theme";
 
 const STATUS = [
@@ -79,6 +81,94 @@ function EventLine({ evt }: { evt: BattleEvent }) {
   );
 }
 
+/* ── Stats comparison ────────────────────────────────────────────────── */
+type Stats   = { atk: number; def: number; spd: number };
+type Profile = { wins: number; losses: number; categories: string[] };
+
+const STAT_KEYS: { key: keyof Stats; label: string; color: string }[] = [
+  { key: "atk", label: "ATK", color: C.danger  },
+  { key: "def", label: "DEF", color: C.teal    },
+  { key: "spd", label: "SPD", color: C.waiting },
+];
+
+function WinRate({ wins, losses, align }: { wins: number; losses: number; align: "left" | "right" }) {
+  const rate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
+  const row = (
+    <View style={styles.wlRow}>
+      <Text style={styles.wlW}>{wins}W</Text>
+      <Text style={styles.wlL}>{losses}L</Text>
+      {rate !== null && <Text style={styles.wlRate}>{rate}%</Text>}
+    </View>
+  );
+  return align === "right"
+    ? <View style={{ alignItems: "flex-end" }}>{row}</View>
+    : row;
+}
+
+function StatsComparison({
+  a, b, nameA, nameB, profileA, profileB,
+}: {
+  a: Stats; b: Stats;
+  nameA: string; nameB: string;
+  profileA: Profile | null; profileB: Profile | null;
+}) {
+  return (
+    <View style={styles.statsComp}>
+      <Text style={styles.statsCompLabel}>COMBAT SPECS</Text>
+
+      {/* Names + W/L */}
+      <View style={styles.statsHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.statsName, { color: C.robotA }]} numberOfLines={1}>{nameA}</Text>
+          {profileA && <WinRate wins={profileA.wins} losses={profileA.losses} align="left" />}
+        </View>
+        <Text style={styles.statsVs}>VS</Text>
+        <View style={{ flex: 1, alignItems: "flex-end" }}>
+          <Text style={[styles.statsName, { color: C.robotB }]} numberOfLines={1}>{nameB}</Text>
+          {profileB && <WinRate wins={profileB.wins} losses={profileB.losses} align="right" />}
+        </View>
+      </View>
+
+      {/* Mirrored bars */}
+      {STAT_KEYS.map(({ key, label, color }) => (
+        <View key={key} style={styles.statsCompRow}>
+          <Text style={[styles.statsVal, { color }]}>{a[key]}</Text>
+          <View style={styles.statsBarWrap}>
+            <View style={styles.barBgLeft}>
+              <View style={[styles.barFillLeft, { width: `${a[key]}%` as unknown as number, backgroundColor: color }]} />
+            </View>
+            <Text style={styles.statsRowLabel}>{label}</Text>
+            <View style={styles.barBgRight}>
+              <View style={[styles.barFillRight, { width: `${b[key]}%` as unknown as number, backgroundColor: color, opacity: 0.5 }]} />
+            </View>
+          </View>
+          <Text style={[styles.statsVal, { color, opacity: 0.7 }]}>{b[key]}</Text>
+        </View>
+      ))}
+
+      {/* Categories */}
+      {((profileA?.categories?.length ?? 0) > 0 || (profileB?.categories?.length ?? 0) > 0) && (
+        <View style={styles.catCompRow}>
+          <View style={styles.catCompSide}>
+            {(profileA?.categories ?? []).map((cat) => (
+              <View key={cat} style={[styles.catTag, { borderColor: C.robotA + "60" }]}>
+                <Text style={[styles.catTagText, { color: C.robotA }]}>{cat}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={[styles.catCompSide, { alignItems: "flex-end" }]}>
+            {(profileB?.categories ?? []).map((cat) => (
+              <View key={cat} style={[styles.catTag, { borderColor: C.robotB + "60" }]}>
+                <Text style={[styles.catTagText, { color: C.robotB }]}>{cat}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 /* ── Stat box ────────────────────────────────────────────────────────── */
 function StatBox({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
@@ -102,6 +192,44 @@ export default function BattleScreen() {
   const { publicKey } = useWallet();
   const { robot } = useRobot(publicKey);
 
+  // Fetch competition metadata for real robot names + stats + profiles
+  const [nameA, setNameA] = useState("UNIT-A");
+  const [nameB, setNameB] = useState("UNIT-B");
+  const [statsA, setStatsA] = useState<{ atk: number; def: number; spd: number } | null>(null);
+  const [statsB, setStatsB] = useState<{ atk: number; def: number; spd: number } | null>(null);
+  const [profileA, setProfileA] = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
+  const [profileB, setProfileB] = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
+
+  useEffect(() => {
+    setStatsA(null);
+    setStatsB(null);
+    setProfileA(null);
+    setProfileB(null);
+
+    let rNameA = "UNIT-A";
+    let rNameB = "UNIT-B";
+
+    fetch(`${BRIDGE_BASE_URL}/api/competition/${battleId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data) return null;
+        if (data.robot_a_name) { setNameA(data.robot_a_name); rNameA = data.robot_a_name; }
+        if (data.robot_b_name) { setNameB(data.robot_b_name); rNameB = data.robot_b_name; }
+        if (data.robot_a_attack != null) setStatsA({ atk: data.robot_a_attack, def: data.robot_a_defense, spd: data.robot_a_speed });
+        if (data.robot_b_attack != null) setStatsB({ atk: data.robot_b_attack, def: data.robot_b_defense, spd: data.robot_b_speed });
+        return fetch(`${BRIDGE_BASE_URL}/api/leaderboard`);
+      })
+      .then((r) => r?.ok ? r.json() : null)
+      .then((entries: Array<{ name: string; wins: number; losses: number; categories?: string[] }> | null) => {
+        if (!entries) return;
+        const a = entries.find((e) => e.name === rNameA);
+        const b = entries.find((e) => e.name === rNameB);
+        if (a) setProfileA({ wins: a.wins, losses: a.losses, categories: a.categories ?? [] });
+        if (b) setProfileB({ wins: b.wins, losses: b.losses, categories: b.categories ?? [] });
+      })
+      .catch(() => {});
+  }, [battleId]);
+
   // Detect if the connected wallet's robot is in this battle
   const commanderSide: "robot_a" | "robot_b" | null =
     robot && battle.robotA && robot.pda === battle.robotA ? "robot_a" :
@@ -111,6 +239,13 @@ export default function BattleScreen() {
 
   const status = STATUS[battle.status] ?? { label: "UNKNOWN", color: C.textDim };
   const isLive = battle.status === 1;
+
+  const handleShare = () => {
+    Share.share({
+      message: `Watch Battle #${battleId} LIVE on Proof of Battle!\nhttps://proofofbattle.app/arena/${battleId}`,
+      title: `Battle #${battleId} · Proof of Battle`,
+    }).catch(() => {});
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -129,6 +264,13 @@ export default function BattleScreen() {
             </Text>
           </View>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={styles.shareBtn}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.shareBtnText}>⤴ SHARE</Text>
+            </TouchableOpacity>
             <View style={[styles.wsDot, { backgroundColor: wsConnected ? C.green : C.textDim }]} />
             <Text style={[styles.wsLabel, { color: wsConnected ? C.green : C.textDim }]}>
               {wsConnected ? "LIVE" : "SYNC"}
@@ -181,11 +323,20 @@ export default function BattleScreen() {
             <View style={styles.hpSection}>
               <Text style={styles.sysLabel}>INTEGRITY CHECK</Text>
               <View style={styles.hpRow}>
-                <HPBar label="UNIT-A" hp={battle.hpA} color={C.robotA} align="left"  />
+                <HPBar label={nameA} hp={battle.hpA} color={C.robotA} align="left"  />
                 <View style={{ width: 16 }} />
-                <HPBar label="UNIT-B" hp={battle.hpB} color={C.robotB} align="right" />
+                <HPBar label={nameB} hp={battle.hpB} color={C.robotB} align="right" />
               </View>
             </View>
+
+            {/* ── Combat stats comparison ─────────────────────────── */}
+            {statsA && statsB && (
+              <StatsComparison
+                a={statsA} b={statsB}
+                nameA={nameA} nameB={nameB}
+                profileA={profileA} profileB={profileB}
+              />
+            )}
 
             {/* ── Live event feed ────────────────────────────────── */}
             <View style={styles.terminalBox}>
@@ -254,6 +405,8 @@ export default function BattleScreen() {
                 publicKey={publicKey}
                 totalBetsA={battle.totalBetsA}
                 totalBetsB={battle.totalBetsB}
+                nameA={nameA}
+                nameB={nameB}
               />
             )}
 
@@ -283,7 +436,7 @@ export default function BattleScreen() {
                     styles.winnerTitle,
                     { color: battle.winner === 0 ? C.robotA : C.robotB },
                   ]}>
-                    UNIT-{battle.winner === 0 ? "A" : "B"} VICTORIOUS
+                    {battle.winner === 0 ? nameA : nameB} VICTORIOUS
                   </Text>
                   <Text style={styles.winnerSub}>
                     {">"} WINNINGS DISTRIBUTED ON-CHAIN
@@ -316,9 +469,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
   },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 5 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   wsDot:   { width: 6, height: 6, borderRadius: 3 },
   wsLabel: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
+  shareBtn: {
+    borderWidth: 1, borderColor: C.teal + "60",
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+    backgroundColor: C.teal + "18",
+  },
+  shareBtnText: {
+    fontFamily: MONO, color: C.teal,
+    fontSize: 8, fontWeight: "900", letterSpacing: 1,
+  },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   staticDot: { width: 8, height: 8, borderRadius: 4 },
   statusLabel: {
@@ -369,6 +531,49 @@ const styles = StyleSheet.create({
     gap:             12,
   },
   hpRow: { flexDirection: "row" },
+
+  // Stats comparison
+  statsComp: {
+    backgroundColor: C.bgCard,
+    borderRadius:    10,
+    borderWidth:     1,
+    borderColor:     C.border,
+    padding:         12,
+    gap:             8,
+  },
+  statsCompLabel: {
+    fontFamily:    MONO,
+    color:         C.textDim,
+    fontSize:      8,
+    fontWeight:    "800",
+    letterSpacing: 4,
+    marginBottom:  2,
+  },
+  statsHeader:  { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  statsName:    { fontSize: 11, fontWeight: "900", letterSpacing: 1 },
+  statsVs:      { fontFamily: MONO, color: C.textDim, fontSize: 9, alignSelf: "center", paddingHorizontal: 2 },
+  wlRow:        { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  wlW:          { fontFamily: MONO, color: C.green,  fontSize: 9, fontWeight: "800" },
+  wlL:          { fontFamily: MONO, color: C.danger, fontSize: 9, fontWeight: "800" },
+  wlRate:       { fontFamily: MONO, color: C.textDim, fontSize: 8 },
+
+  statsCompRow:    { flexDirection: "row", alignItems: "center", gap: 6 },
+  statsVal:    { fontFamily: MONO, fontSize: 11, fontWeight: "900", width: 26, textAlign: "center" },
+  statsBarWrap:{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+  statsRowLabel:{ fontFamily: MONO, color: C.textDim, fontSize: 8, width: 24, textAlign: "center", letterSpacing: 1 },
+  barBgLeft:   { flex: 1, height: 5, backgroundColor: C.bgAccent, borderRadius: 3, overflow: "hidden", flexDirection: "row", justifyContent: "flex-end" },
+  barBgRight:  { flex: 1, height: 5, backgroundColor: C.bgAccent, borderRadius: 3, overflow: "hidden" },
+  barFillLeft: { height: "100%", borderRadius: 3 },
+  barFillRight:{ height: "100%", borderRadius: 3 },
+
+  catCompRow:  { flexDirection: "row", gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border + "60" },
+  catCompSide: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  catTag: {
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  catTagText: { fontFamily: MONO, fontSize: 7, fontWeight: "800", letterSpacing: 0.5 },
+
   sysLabel: {
     fontFamily: MONO,
     color:      C.textDim,
