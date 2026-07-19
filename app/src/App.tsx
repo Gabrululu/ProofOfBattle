@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { HealthBar }    from "./components/HealthBar";
 import { Commentary }   from "./components/Commentary";
 import { VoiceControl } from "./components/VoiceControl";
@@ -6,6 +7,8 @@ import { Arena }        from "./components/Arena";
 import { WalletButton } from "./components/WalletButton";
 import { BettingPanel } from "./components/BettingPanel";
 import { useArenaSocket } from "./hooks/useWebSocket";
+import { useRobot } from "./hooks/useRobot";
+import { fetchBattleOnChain, BattleOnChainState } from "./lib/program";
 import { MatchState, DamageEvent, SensorUpdate, AppView } from "./types";
 import { RobotRegister } from "./views/RobotRegister";
 import { CreateCompetition } from "./views/CreateCompetition";
@@ -219,6 +222,25 @@ function ArenaContent({
   const [profileA, setProfileA]         = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
   const [profileB, setProfileB]         = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
   const [shareCopied, setShareCopied]   = useState(false);
+  const [chainBattle, setChainBattle]   = useState<BattleOnChainState | null>(null);
+
+  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const { robot: myRobot } = useRobot(publicKey);
+
+  // Which side (if any) the connected wallet is the registered owner of —
+  // drives whether this client sees voice commands (competitor) or just betting (spectator).
+  const isCommanderA = !!myRobot && !!chainBattle && myRobot.pda === chainBattle.robotA;
+  const isCommanderB = !!myRobot && !!chainBattle && myRobot.pda === chainBattle.robotB;
+  const isSpectator  = !!publicKey && !isCommanderA && !isCommanderB;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchBattleOnChain(connection, arenaId)
+      .then((b) => { if (!cancelled) setChainBattle(b); })
+      .catch(() => { if (!cancelled) setChainBattle(null); });
+    return () => { cancelled = true; };
+  }, [connection, arenaId]);
 
   const handleShare = () => {
     const url = `${window.location.origin}${window.location.pathname}?arena=${arenaId}`;
@@ -407,10 +429,16 @@ function ArenaContent({
       </div>
       <BettingPanel arenaId={arenaId} totalBetsA={bets.a} totalBetsB={bets.b} isFinished={isFinished} nameA={nameA} nameB={nameB} />
       <Commentary lines={commentary} audioBase64={lastAudio} />
-      <div className="grid grid-cols-2 gap-2">
-        <VoiceControl arenaId={arenaId} robotId="robot_a" />
-        <VoiceControl arenaId={arenaId} robotId="robot_b" />
-      </div>
+      {(isCommanderA || isCommanderB) ? (
+        <div className={`grid ${isCommanderA && isCommanderB ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
+          {isCommanderA && <VoiceControl arenaId={arenaId} robotId="robot_a" />}
+          {isCommanderB && <VoiceControl arenaId={arenaId} robotId="robot_b" />}
+        </div>
+      ) : isSpectator ? (
+        <div className="border border-gray-900 rounded-lg p-3 text-center bg-[#08080f]">
+          <p className="text-[9px] text-gray-600 font-mono">Spectating — only the robot owner's wallet can send voice commands</p>
+        </div>
+      ) : null}
       {txLog.length > 0 && (
         <div className="border border-gray-900 rounded-lg p-2.5 bg-[#08080f]">
           <p className="text-[8px] tracking-[0.3em] text-gray-700 uppercase mb-1.5">On-chain log</p>
