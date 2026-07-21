@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { Stack } from "expo-router";
 import { BRIDGE_BASE_URL } from "../lib/constants";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 interface RobotEntry {
   owner: string;
@@ -194,7 +194,7 @@ const sty = StyleSheet.create({
   medal:     { fontSize: 22, width: 32, textAlign: "center" },
   rankNum:   { fontFamily: MONO, color: C.textDim, fontSize: 13, fontWeight: "900" },
   nameRow:   { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  robotName: { color: C.textPrimary, fontSize: 15, fontWeight: "900", letterSpacing: 1.5, flex: 1 },
+  robotName: { color: C.textPrimary, fontSize: 15, fontFamily: SANS_900, letterSpacing: 1.5, flex: 1 },
   ownerText: { fontFamily: MONO, color: C.textDim, fontSize: 9 },
 
   activeBadge: {

@@ -13,7 +13,7 @@ import {
   fetchBetState, CLAIM_WINNINGS_DISCRIMINATOR,
 } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 interface Props {
   battleId:  number;
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color:      "#000",
-    fontWeight: "900",
+    fontFamily: SANS_900,
     fontSize:   13,
     letterSpacing: 1,
   },

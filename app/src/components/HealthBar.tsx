@@ -29,8 +29,14 @@ export function HealthBar({ hp, label, side, flip = false }: Props) {
   }, [hp]);
 
   const blue = side === "a";
-  const accentColor = blue ? "#3b82f6" : "#ef4444";
-  const segColor = isDanger ? "#dc2626" : isWarning ? "#ca8a04" : blue ? "#2563eb" : "#dc2626";
+  const accentColor = blue ? "var(--color-secondary)" : "var(--color-primary)";
+  const segColor = isDanger
+    ? "var(--color-primary)"
+    : isWarning
+    ? "#ca8a04"
+    : blue
+    ? "var(--color-secondary-deep)"
+    : "var(--color-primary)";
   const glowClass = blue ? "animate-glow-blue" : "animate-glow-red";
   const textGlow = blue ? "text-glow-blue" : "text-glow-red";
 
@@ -48,7 +54,7 @@ export function HealthBar({ hp, label, side, flip = false }: Props) {
           className={`text-2xl font-black tabular-nums leading-none ${isDanger ? "text-red-400 animate-pulse" : "text-white"}`}
         >
           {hp}
-          <span className="text-[9px] font-normal text-gray-500 ml-0.5">HP</span>
+          <span className="text-[9px] font-normal text-muted ml-0.5">HP</span>
         </span>
       </div>
 

@@ -8,7 +8,7 @@ import { BRIDGE_BASE_URL } from "../lib/constants";
 import { useWallet } from "../hooks/useWallet";
 import { WalletButton } from "../components/WalletButton";
 import { toast } from "../components/Toast";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_700, SANS_900 } from "../lib/theme";
 
 interface Member {
   wallet: string;
@@ -561,7 +561,7 @@ const sty = StyleSheet.create({
     borderWidth: 1, borderColor: C.border,
     padding: 16, gap: 12,
   },
-  toggleTitle: { color: C.textPrimary, fontSize: 14, fontWeight: "700" },
+  toggleTitle: { color: C.textPrimary, fontSize: 14, fontFamily: SANS_700 },
   toggleSub:   { color: C.textDim, fontSize: 11 },
 
   memberCard: {
@@ -596,12 +596,12 @@ const sty = StyleSheet.create({
     shadowColor: C.purple, shadowOpacity: 0.4, shadowRadius: 12,
     elevation: 6,
   },
-  createBtnText: { color: "#fff", fontWeight: "900", fontSize: 15, letterSpacing: 3 },
+  createBtnText: { color: "#fff", fontFamily: SANS_900, fontSize: 15, letterSpacing: 3 },
 
   // Success
   successCard: { marginTop: 32, alignItems: "center", gap: 16 },
   successIcon:  { fontSize: 52, opacity: 0.9 },
-  successTitle: { color: C.green, fontSize: 18, fontWeight: "900", letterSpacing: 4 },
+  successTitle: { color: C.green, fontSize: 18, fontFamily: SANS_900, letterSpacing: 4 },
   successName:  { color: C.textSecondary, fontSize: 13, fontFamily: MONO },
   successIdBox: {
     width: "100%", backgroundColor: C.bgCard,

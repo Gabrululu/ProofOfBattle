@@ -1,47 +1,50 @@
-import { Platform } from "react-native";
-
+// Key names are historical (kept so every screen's `C.xxx` reference stays
+// valid) but the values now match the web landing/dashboard's red/blue system.
 export const C = {
   // Backgrounds
-  bg:        "#06060E",
-  bgCard:    "#0C0C1A",
-  bgAccent:  "#0F0F1E",
+  bg:        "#05060D",
+  bgCard:    "#0B1124",
+  bgAccent:  "#101A33",
 
   // Borders
-  border:    "#1A1A3E",
-  borderMid: "#2A2A5A",
+  border:    "#15203A",
+  borderMid: "#233457",
 
-  // Solana brand
-  purple: "#9945FF",
-  green:  "#14F195",
-  teal:   "#00C2FF",
+  // Brand accents (was Solana purple/green/teal)
+  purple: "#FF2D4A", // primary red — brand accent, CTAs
+  green:  "#22C55E", // kept as semantic success/live green
+  teal:   "#6EA8FF", // secondary-family accent (was cyan)
 
   // Per-robot
-  robotA: "#9945FF",
-  robotB: "#14F195",
+  robotA: "#2D7BFF", // secondary blue
+  robotB: "#FF2D4A", // primary red
 
   // Text
-  textPrimary:   "#E0E0F0",
-  textSecondary: "#8888AA",
-  textDim:       "#2E2E50",
+  textPrimary:   "#F2F2F2",
+  textSecondary: "#6B7A99",
+  textDim:       "#38445E",
 
   // Status
-  live:     "#14F195",
-  waiting:  "#FFD600",
-  finished: "#555577",
-  danger:   "#FF3355",
+  live:     "#22C55E",
+  waiting:  "#FBBF24",
+  finished: "#5B6B8C",
+  danger:   "#FF2D4A",
 } as const;
 
-// Monospace font — terminal / things.inc aesthetic
-export const MONO = Platform.select({
-  ios:     "Menlo",
-  android: "monospace",
-  default: "monospace",
-}) as string;
+// These are only ever read by screens that are lazily required by
+// expo-router, and the root layout (app/_layout.tsx) blocks rendering the
+// Stack — and therefore blocks any screen module from being evaluated —
+// until useFonts() resolves. So it's safe to hardcode the final custom font
+// names here rather than juggle a loading fallback.
+export const MONO      = "JetBrainsMono_600SemiBold";
+export const MONO_BOLD = "JetBrainsMono_700Bold";
+export const SANS_700  = "Inter_700Bold";
+export const SANS_900  = "Inter_900Black";
 
 // Reusable text style blocks
 export const T = {
   mono:    { fontFamily: MONO } as const,
-  display: { fontWeight: "900", letterSpacing: -1 } as const,
-  label:   { fontWeight: "800", letterSpacing: 3, textTransform: "uppercase" } as const,
+  display: { fontFamily: SANS_900, letterSpacing: -1 } as const,
+  label:   { fontFamily: MONO_BOLD, letterSpacing: 3, textTransform: "uppercase" } as const,
   prompt:  { fontFamily: MONO, color: C.green, fontSize: 12 } as const,
 } as const;

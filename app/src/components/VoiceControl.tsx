@@ -10,16 +10,16 @@ const SIDE: Record<string, { label: string; short: string; color: string; glow: 
   robot_a: {
     label: "UNIT ALPHA",
     short: "A",
-    color: "bg-blue-600 hover:bg-blue-500 active:scale-95",
+    color: "bg-secondary hover:brightness-110 active:scale-95",
     glow: "animate-glow-blue",
-    border: "border-blue-900/60",
+    border: "border-secondary/60",
   },
   robot_b: {
     label: "UNIT BETA",
     short: "B",
-    color: "bg-red-700 hover:bg-red-600 active:scale-95",
+    color: "bg-primary hover:brightness-110 active:scale-95",
     glow: "animate-glow-red",
-    border: "border-red-900/60",
+    border: "border-primary/60",
   },
 };
 
@@ -38,7 +38,7 @@ export function VoiceControl({ arenaId, robotId }: Props) {
   const isProcessing = state === "processing";
 
   return (
-    <div className={`flex flex-col gap-3 p-3 rounded-lg border bg-[#08080f] ${cfg.border}`}>
+    <div className={`flex flex-col gap-3 p-3 rounded-lg border bg-surface ${cfg.border}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -47,13 +47,13 @@ export function VoiceControl({ arenaId, robotId }: Props) {
           >
             {cfg.short}
           </span>
-          <span className="text-[10px] tracking-[0.2em] font-bold text-gray-300">{cfg.label}</span>
+          <span className="text-[10px] tracking-[0.2em] font-bold text-foreground">{cfg.label}</span>
         </div>
         <span
           className={`text-[9px] px-2 py-0.5 rounded-full font-mono border ${
             connected
               ? "border-green-800 text-green-400 bg-green-950/50"
-              : "border-gray-800 text-gray-600 bg-transparent"
+              : "border-border text-muted bg-transparent"
           }`}
         >
           {connected ? "● LINKED" : "○ OFFLINE"}
@@ -79,7 +79,7 @@ export function VoiceControl({ arenaId, robotId }: Props) {
       {/* Demo */}
       <button
         onClick={handleDemo}
-        className="w-full py-1.5 rounded text-[10px] tracking-widest uppercase font-bold bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-gray-200 border border-gray-800 transition-colors"
+        className="w-full py-1.5 rounded text-[10px] tracking-widest uppercase font-bold bg-surface hover:bg-primary/10 text-muted hover:text-foreground border border-border transition-colors"
       >
         ⚡ DEMO COMMAND
       </button>

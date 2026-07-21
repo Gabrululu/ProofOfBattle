@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
+import { MarketingLanding } from "./views/MarketingLanding";
 import "./index.css";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
@@ -32,7 +34,12 @@ function Providers({ children }: { children: React.ReactNode }) {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Providers>
-      <App />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<MarketingLanding />} />
+          <Route path="/app/*" element={<App />} />
+        </Routes>
+      </BrowserRouter>
     </Providers>
   </React.StrictMode>
 );

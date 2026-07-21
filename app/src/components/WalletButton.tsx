@@ -21,7 +21,7 @@ export function WalletButton() {
   return (
     <button
       onClick={() => setVisible(true)}
-      className="text-[9px] font-mono px-2 py-1 rounded border border-purple-800 text-purple-400 bg-purple-950/30 hover:bg-purple-900/40 transition-colors tracking-wider"
+      className="text-[9px] font-mono px-2 py-1 rounded border border-primary text-primary bg-primary/30 hover:bg-primary/40 transition-colors tracking-wider"
     >
       CONNECT
     </button>

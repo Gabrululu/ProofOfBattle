@@ -1,6 +1,6 @@
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from "react-native";
 import { PublicKey } from "@solana/web3.js";
-import { C } from "../lib/theme";
+import { C, SANS_700, SANS_900 } from "../lib/theme";
 
 export interface WalletButtonProps {
   publicKey: PublicKey | null;
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   connectText: {
     color: "#fff",
-    fontWeight: "900",
+    fontFamily: SANS_900,
     fontSize: 13,
     letterSpacing: 2,
   },
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   connectedText: {
     color:      C.green,
-    fontWeight: "700",
+    fontFamily: SANS_700,
     fontSize:   13,
     letterSpacing: 1,
   },

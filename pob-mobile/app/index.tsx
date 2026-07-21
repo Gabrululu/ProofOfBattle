@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useRouter, Href } from "expo-router";
 import { RobotFace } from "../components/RobotFace";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 const { width: W } = Dimensions.get("window");
 
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   title: {
     color:      C.textPrimary,
     fontSize:   44,
-    fontWeight: "900",
+    fontFamily: SANS_900,
     textAlign:  "center",
     letterSpacing: 10,
     lineHeight:    50,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius:  20,
     paddingVertical:   5,
     paddingHorizontal: 12,
-    backgroundColor:   "#0C0C1A",
+    backgroundColor:   C.bgCard,
   },
   pillIcon:  { fontSize: 12 },
   pillLabel: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
@@ -225,10 +225,10 @@ const styles = StyleSheet.create({
     shadowRadius:    16,
     elevation:       8,
   },
-  enterBtnDim: { backgroundColor: "#2A1A4A", shadowOpacity: 0 },
+  enterBtnDim: { backgroundColor: C.bgAccent, shadowOpacity: 0 },
   enterBtnText: {
     color:      "#fff",
-    fontWeight: "900",
+    fontFamily: SANS_900,
     fontSize:   16,
     letterSpacing: 4,
   },

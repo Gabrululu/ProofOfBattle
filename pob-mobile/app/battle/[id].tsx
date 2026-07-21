@@ -16,7 +16,7 @@ import { ClaimPanel }   from "../../components/ClaimPanel";
 import { RobotFace }    from "../../components/RobotFace";
 import { CommandPanel } from "../../components/CommandPanel";
 import { BRIDGE_BASE_URL } from "../../lib/constants";
-import { C, MONO }      from "../../lib/theme";
+import { C, MONO, SANS_900 } from "../../lib/theme";
 
 const STATUS = [
   { label: "STANDBY",  color: C.waiting  },
@@ -56,10 +56,10 @@ function LivePulse() {
 
 /* ── Event feed line ────────────────────────────────────────────────── */
 const EVENT_COLOR: Record<BattleEvent["kind"], string> = {
-  damage: "#ff4444",
-  action: "#b06cff",
-  system: "#555577",
-  result: "#00ff88",
+  damage: C.danger,
+  action: C.teal,
+  system: C.finished,
+  result: C.live,
 };
 
 function EventLine({ evt }: { evt: BattleEvent }) {
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   vsText: {
     color:      C.textDim,
     fontSize:   14,
-    fontWeight: "900",
+    fontFamily: SANS_900,
     letterSpacing: 3,
   },
 
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     marginBottom:  2,
   },
   statsHeader:  { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  statsName:    { fontSize: 11, fontWeight: "900", letterSpacing: 1 },
+  statsName:    { fontSize: 11, fontFamily: SANS_900, letterSpacing: 1 },
   statsVs:      { fontFamily: MONO, color: C.textDim, fontSize: 9, alignSelf: "center", paddingHorizontal: 2 },
   wlRow:        { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
   wlW:          { fontFamily: MONO, color: C.green,  fontSize: 9, fontWeight: "800" },
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
 
   // Terminal log
   terminalBox: {
-    backgroundColor: "#050510",
+    backgroundColor: C.bg,
     borderRadius:    10,
     borderWidth:     1,
     borderColor:     C.border,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   terminalBody:   { padding: 12, gap: 5 },
   liveChip: {
     marginLeft: "auto",
-    backgroundColor: "#001a00",
+    backgroundColor: C.green + "22",
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   liveChipText: { fontFamily: MONO, color: C.green, fontSize: 8, fontWeight: "900" },
   eventLine:  { flexDirection: "row", gap: 6, alignItems: "flex-start" },
   eventKind:  { fontFamily: MONO, fontSize: 9, fontWeight: "900", width: 28, paddingTop: 1 },
-  eventTs:    { fontFamily: MONO, color: "#444466", fontSize: 9, paddingTop: 1, width: 52 },
+  eventTs:    { fontFamily: MONO, color: C.textDim, fontSize: 9, paddingTop: 1, width: 52 },
   eventMsg:   { fontFamily: MONO, color: C.textSecondary, fontSize: 11, flex: 1, lineHeight: 16 },
   termIdle: {
     fontFamily: MONO,
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     elevation:       8,
   },
   winnerText:  { flex: 1, gap: 8 },
-  winnerTitle: { fontSize: 20, fontWeight: "900", letterSpacing: 2 },
+  winnerTitle: { fontSize: 20, fontFamily: SANS_900, letterSpacing: 2 },
   winnerSub:   {
     fontFamily: MONO,
     color:      C.textSecondary,

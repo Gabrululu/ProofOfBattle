@@ -43,7 +43,7 @@ const STATUS_BADGE: Record<
 > = {
   active:   { label: "● LIVE",    cls: "border-green-800 text-green-400 bg-green-950/40" },
   waiting:  { label: "◎ WAITING", cls: "border-yellow-800 text-yellow-400 bg-yellow-950/40" },
-  finished: { label: "○ ENDED",   cls: "border-gray-800 text-gray-500 bg-gray-900/40" },
+  finished: { label: "○ ENDED",   cls: "border-border text-muted bg-surface/40" },
 };
 
 type Filter = "all" | "active" | "waiting" | "finished";
@@ -153,13 +153,13 @@ export function StreamBrowser({ onJoin }: Props) {
   const visible = filter === "all" ? competitions : competitions.filter((c) => c.status === filter);
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-lg mx-auto pb-24">
+    <div className="flex flex-col gap-4 p-4 md:p-8 max-w-6xl mx-auto pb-24 md:pb-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-black tracking-[0.3em] text-gray-200 uppercase">
+          <h2 className="text-sm font-black tracking-[0.3em] text-foreground uppercase">
             Live Streams
           </h2>
-          <p className="text-[9px] text-gray-600 tracking-wider mt-0.5">
+          <p className="text-[9px] text-muted tracking-wider mt-0.5">
             Join a competition and support your favorite
           </p>
         </div>
@@ -178,7 +178,7 @@ export function StreamBrowser({ onJoin }: Props) {
           )}
           <button
             onClick={fetchCompetitions}
-            className="text-[8px] font-mono text-gray-600 hover:text-gray-400 border border-gray-800 rounded-lg px-2.5 py-1.5 transition-colors tracking-widest"
+            className="text-[8px] font-mono text-muted hover:text-foreground border border-border rounded-lg px-2.5 py-1.5 transition-colors tracking-widest"
           >
             ↻ REFRESH
           </button>
@@ -193,9 +193,9 @@ export function StreamBrowser({ onJoin }: Props) {
           const clr =
             key === "active"   ? "border-green-800 text-green-400 bg-green-950/50"  :
             key === "waiting"  ? "border-yellow-800 text-yellow-400 bg-yellow-950/50" :
-            key === "finished" ? "border-gray-700 text-gray-500 bg-gray-900/50"     :
-            "border-gray-700 text-gray-400 bg-gray-900/30";
-          const inactiveClr = "border-gray-900 text-gray-600 bg-transparent hover:border-gray-800 hover:text-gray-500";
+            key === "finished" ? "border-border text-muted bg-surface/50"     :
+            "border-border text-muted bg-surface/30";
+          const inactiveClr = "border-border text-muted bg-transparent hover:border-primary/40 hover:text-foreground";
           return (
             <button
               key={key}
@@ -217,18 +217,18 @@ export function StreamBrowser({ onJoin }: Props) {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-2">
-          <p className="text-[10px] text-gray-600 font-mono animate-pulse">
+          <p className="text-[10px] text-muted font-mono animate-pulse">
             SCANNING ARENA…
           </p>
         </div>
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <span className="text-4xl opacity-20">⚔</span>
-          <p className="text-[10px] text-gray-600 font-mono tracking-widest">
+          <p className="text-[10px] text-muted font-mono tracking-widest">
             {competitions.length === 0 ? "NO ACTIVE COMPETITIONS" : `NO ${filter.toUpperCase()} COMPETITIONS`}
           </p>
           {competitions.length === 0 && (
-            <p className="text-[9px] text-gray-700 text-center max-w-xs">
+            <p className="text-[9px] text-muted text-center max-w-xs">
               Be the first — open the COMPETE tab to create a competition and
               start streaming.
             </p>
@@ -236,14 +236,14 @@ export function StreamBrowser({ onJoin }: Props) {
           {competitions.length > 0 && filter !== "all" && (
             <button
               onClick={() => setFilter("all")}
-              className="text-[9px] font-mono text-purple-500 hover:text-purple-400 transition-colors"
+              className="text-[9px] font-mono text-primary hover:brightness-125 transition-colors"
             >
               Show all {competitions.length} competitions →
             </button>
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
           {visible.map((c) => {
             const badge = STATUS_BADGE[c.status] ?? STATUS_BADGE.waiting;
             const canJoin = c.status !== "finished";
@@ -251,34 +251,34 @@ export function StreamBrowser({ onJoin }: Props) {
             return (
               <div
                 key={c.battleId}
-                className="bg-[#08080f] border border-gray-900 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-gray-800"
+                className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-primary/40"
               >
                 {/* Top row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex flex-col gap-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-[11px] font-black text-gray-100 tracking-wider truncate">
+                      <h3 className="text-[11px] font-black text-foreground tracking-wider truncate">
                         {c.name}
                       </h3>
                       {c.isTeam && (
-                        <span className="text-[7px] font-mono font-bold border border-purple-800 text-purple-400 bg-purple-950/40 px-2 py-0.5 rounded-full flex-shrink-0">
+                        <span className="text-[7px] font-mono font-bold border border-primary text-primary bg-primary/40 px-2 py-0.5 rounded-full flex-shrink-0">
                           TEAM
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[8px] text-gray-600 font-mono flex-wrap">
+                    <div className="flex items-center gap-2 text-[8px] text-muted font-mono flex-wrap">
                       <span>📍 {c.location}</span>
                       {c.viewerCount > 0 && (
-                        <span className="text-gray-700">
+                        <span className="text-muted">
                           · 👁 {c.viewerCount}
                         </span>
                       )}
-                      <span className="text-gray-800">
+                      <span className="text-muted">
                         · ID {c.battleId}
                       </span>
                     </div>
                     {c.isTeam && c.teamName && (
-                      <p className="text-[8px] text-purple-500 font-mono">
+                      <p className="text-[8px] text-primary font-mono">
                         {c.teamName}
                       </p>
                     )}
@@ -294,15 +294,15 @@ export function StreamBrowser({ onJoin }: Props) {
                 {c.isTeam &&
                   c.members &&
                   c.members.some((m) => m.alias || m.wallet) && (
-                    <div className="flex flex-wrap gap-1.5 border-t border-gray-900/80 pt-2.5">
+                    <div className="flex flex-wrap gap-1.5 border-t border-border/80 pt-2.5">
                       {c.members
                         .filter((m) => m.alias || m.wallet)
                         .map((m, i) => (
                           <div
                             key={i}
-                            className="flex items-center gap-1.5 text-[8px] bg-[#0c0c1a] border border-gray-800 rounded-full px-2.5 py-1"
+                            className="flex items-center gap-1.5 text-[8px] bg-surface border border-border rounded-full px-2.5 py-1"
                           >
-                            <span className="text-gray-400 font-mono">
+                            <span className="text-muted font-mono">
                               {m.alias ||
                                 (m.wallet
                                   ? m.wallet.slice(0, 4) + "…" + m.wallet.slice(-4)
@@ -342,10 +342,10 @@ export function StreamBrowser({ onJoin }: Props) {
                   disabled={!canJoin || joining === c.battleId}
                   className={`w-full py-2.5 rounded-lg font-black text-[10px] tracking-[0.25em] transition-all ${
                     !canJoin
-                      ? "bg-gray-900 text-gray-600 cursor-not-allowed"
+                      ? "bg-surface text-muted cursor-not-allowed"
                       : c.status === "active"
                       ? "bg-green-900/40 hover:bg-green-900/60 border border-green-800/60 text-green-300"
-                      : "bg-purple-900/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300"
+                      : "bg-primary/40 hover:bg-primary/60 border border-primary/60 text-primary"
                   } ${joining === c.battleId ? "opacity-50 cursor-wait" : ""}`}
                 >
                   {joining === c.battleId

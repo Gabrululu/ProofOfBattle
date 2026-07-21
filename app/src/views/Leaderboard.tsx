@@ -22,7 +22,7 @@ const MEDAL = ["🥇", "🥈", "🥉"];
 
 function StatBar({ value, color }: { value: number; color: string }) {
   return (
-    <div className="relative h-1 flex-1 bg-gray-900 rounded-full overflow-hidden">
+    <div className="relative h-1 flex-1 bg-surface rounded-full overflow-hidden">
       <div
         className="absolute left-0 top-0 h-full rounded-full"
         style={{ width: `${value}%`, backgroundColor: color, opacity: 0.75 }}
@@ -56,14 +56,14 @@ export function Leaderboard() {
   }, [fetchLeaderboard]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-lg mx-auto pb-24">
+    <div className="flex flex-col gap-4 p-4 md:p-8 max-w-3xl mx-auto pb-24 md:pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-black tracking-[0.3em] text-gray-200 uppercase">
+          <h2 className="text-sm font-black tracking-[0.3em] text-foreground uppercase">
             Leaderboard
           </h2>
-          <p className="text-[9px] text-gray-600 tracking-wider mt-0.5">
+          <p className="text-[9px] text-muted tracking-wider mt-0.5">
             {lastUpdate
               ? `Updated ${lastUpdate.toLocaleTimeString()}`
               : "Robot rankings by wins"}
@@ -71,7 +71,7 @@ export function Leaderboard() {
         </div>
         <button
           onClick={fetchLeaderboard}
-          className="text-[8px] font-mono text-gray-600 hover:text-gray-400 border border-gray-800 rounded-lg px-2.5 py-1.5 transition-colors tracking-widest"
+          className="text-[8px] font-mono text-muted hover:text-foreground border border-border rounded-lg px-2.5 py-1.5 transition-colors tracking-widest"
         >
           ↻ REFRESH
         </button>
@@ -79,17 +79,17 @@ export function Leaderboard() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-[10px] text-gray-600 font-mono animate-pulse">
+          <p className="text-[10px] text-muted font-mono animate-pulse">
             LOADING RANKINGS…
           </p>
         </div>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-4">
           <span className="text-4xl opacity-20">🏆</span>
-          <p className="text-[10px] text-gray-600 font-mono tracking-widest">
+          <p className="text-[10px] text-muted font-mono tracking-widest">
             NO ROBOTS REGISTERED
           </p>
-          <p className="text-[9px] text-gray-700 text-center max-w-xs">
+          <p className="text-[9px] text-muted text-center max-w-xs">
             Register your robot in the ROBOT tab to appear here.
           </p>
         </div>
@@ -100,31 +100,30 @@ export function Leaderboard() {
               ? Math.round((e.wins / (e.wins + e.losses)) * 100)
               : 0;
 
+            const borderColor =
+              idx === 0 ? "#B8860B" :
+              idx === 1 ? "#888" :
+              idx === 2 ? "#8B4513" :
+              "var(--color-border)";
+
             return (
               <div
                 key={e.owner}
-                className={`bg-[#08080f] border rounded-xl p-4 flex flex-col gap-3 transition-colors ${
-                  idx === 0
-                    ? "border-yellow-800/60"
-                    : idx === 1
-                    ? "border-gray-600/40"
-                    : idx === 2
-                    ? "border-orange-900/40"
-                    : "border-gray-900"
-                }`}
+                className="bg-surface border rounded-xl p-4 flex flex-col gap-3 transition-colors"
+                style={{ borderColor }}
               >
                 {/* Rank + name row */}
                 <div className="flex items-center gap-3">
                   <span className="text-lg w-7 text-center flex-shrink-0">
                     {MEDAL[idx] ?? (
-                      <span className="text-[11px] font-mono text-gray-600">
+                      <span className="text-[11px] font-mono text-muted">
                         #{idx + 1}
                       </span>
                     )}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[12px] font-black text-gray-100 tracking-wider truncate">
+                      <p className="text-[12px] font-black text-foreground tracking-wider truncate">
                         {e.name}
                       </p>
                       {e.is_active && (
@@ -133,7 +132,7 @@ export function Leaderboard() {
                         </span>
                       )}
                     </div>
-                    <p className="text-[8px] text-gray-700 font-mono truncate">
+                    <p className="text-[8px] text-muted font-mono truncate">
                       {e.owner.slice(0, 8)}…{e.owner.slice(-8)}
                     </p>
                   </div>
@@ -148,7 +147,7 @@ export function Leaderboard() {
                         {e.losses}L
                       </span>
                     </div>
-                    <span className="text-[8px] font-mono text-gray-600">
+                    <span className="text-[8px] font-mono text-muted">
                       {winRate}% win rate
                     </span>
                   </div>
@@ -157,19 +156,19 @@ export function Leaderboard() {
                 {/* Stats bars */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-mono text-gray-600 w-6">ATK</span>
-                    <StatBar value={e.attack}  color="#ef4444" />
-                    <span className="text-[9px] font-mono text-red-400 w-6 text-right">{e.attack}</span>
+                    <span className="text-[8px] font-mono text-muted w-6">ATK</span>
+                    <StatBar value={e.attack}  color="var(--color-primary)" />
+                    <span className="text-[9px] font-mono text-primary w-6 text-right">{e.attack}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-mono text-gray-600 w-6">DEF</span>
-                    <StatBar value={e.defense} color="#3b82f6" />
-                    <span className="text-[9px] font-mono text-blue-400 w-6 text-right">{e.defense}</span>
+                    <span className="text-[8px] font-mono text-muted w-6">DEF</span>
+                    <StatBar value={e.defense} color="var(--color-secondary)" />
+                    <span className="text-[9px] font-mono text-secondary w-6 text-right">{e.defense}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-mono text-gray-600 w-6">SPD</span>
-                    <StatBar value={e.speed}   color="#22c55e" />
-                    <span className="text-[9px] font-mono text-green-400 w-6 text-right">{e.speed}</span>
+                    <span className="text-[8px] font-mono text-muted w-6">SPD</span>
+                    <StatBar value={e.speed}   color="#FBBF24" />
+                    <span className="text-[9px] font-mono text-[#FBBF24] w-6 text-right">{e.speed}</span>
                   </div>
                 </div>
 
@@ -179,7 +178,7 @@ export function Leaderboard() {
                     {e.categories.map((cat) => (
                       <span
                         key={cat}
-                        className="text-[7px] font-mono border border-purple-900/60 text-purple-500 bg-purple-950/30 px-2 py-0.5 rounded-full"
+                        className="text-[7px] font-mono border border-primary/60 text-primary bg-primary/30 px-2 py-0.5 rounded-full"
                       >
                         {cat}
                       </span>

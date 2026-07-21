@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated, Text, StyleSheet, View, TouchableOpacity,
 } from "react-native";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_700, SANS_900 } from "../lib/theme";
 
 export type ToastKind = "success" | "error" | "info";
 
@@ -121,10 +121,10 @@ const styles = StyleSheet.create({
   item: {
     flexDirection:   "row",
     alignItems:      "center",
-    backgroundColor: "#0e0e1e",
+    backgroundColor: C.bgCard,
     borderRadius:    12,
     borderWidth:     1,
-    borderColor:     "#1e1e3e",
+    borderColor:     C.border,
     borderLeftWidth: 3,
     padding:         14,
     gap:             12,
@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
     alignItems:   "center",
     justifyContent: "center",
   },
-  icon:    { fontSize: 14, fontWeight: "900" },
+  icon:    { fontSize: 14, fontFamily: SANS_900 },
   textBox: { flex: 1, gap: 2 },
-  text:    { color: C.textPrimary, fontSize: 13, fontWeight: "700", lineHeight: 18 },
+  text:    { color: C.textPrimary, fontSize: 13, fontFamily: SANS_700, lineHeight: 18 },
   sub:     { fontFamily: MONO, color: C.textDim, fontSize: 9.5 },
 });

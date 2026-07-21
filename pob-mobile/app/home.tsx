@@ -12,7 +12,7 @@ import { useWallet }    from "../hooks/useWallet";
 import { useRobot }     from "../hooks/useRobot";
 import { BRIDGE_BASE_URL } from "../lib/constants";
 import { toast } from "../components/Toast";
-import { C, MONO }      from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 // ── Competition type ──────────────────────────────────────────────────────────
 
@@ -352,6 +352,13 @@ export default function HomeScreen() {
           <Text style={styles.sectionLabel}>LIVE ARENAS</Text>
           <View style={styles.sectionLine} />
           <TouchableOpacity
+            style={styles.toolsBtn}
+            onPress={() => router.push("/resources" as Href)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.toolsBtnText}>🛠</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.histBtn}
             onPress={() => router.push("/history" as Href)}
             activeOpacity={0.8}
@@ -506,6 +513,13 @@ const styles = StyleSheet.create({
   },
   histBtnText: { fontSize: 12 },
 
+  toolsBtn: {
+    borderWidth: 1, borderColor: C.border,
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
+    backgroundColor: C.bgAccent,
+  },
+  toolsBtnText: { fontSize: 12 },
+
   createBtn: {
     borderWidth: 1, borderColor: C.purple + "80",
     borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4,
@@ -528,7 +542,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8, elevation: 4,
   },
   robotTop:   { flexDirection: "row", alignItems: "center", gap: 14, width: "100%" },
-  robotName:  { color: C.textPrimary, fontSize: 16, fontWeight: "900", letterSpacing: 2 },
+  robotName:  { color: C.textPrimary, fontSize: 16, fontFamily: SANS_900, letterSpacing: 2 },
   robotStats: { flexDirection: "row", gap: 8 },
   statChip:   { fontFamily: MONO, fontSize: 10, fontWeight: "700" },
   robotRecord:{ alignItems: "center", gap: 2 },
@@ -539,7 +553,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.purple, borderRadius: 8,
     paddingVertical: 10, paddingHorizontal: 24,
   },
-  forgeBtnText: { color: "#fff", fontWeight: "900", fontSize: 12, letterSpacing: 2 },
+  forgeBtnText: { color: "#fff", fontFamily: SANS_900, fontSize: 12, letterSpacing: 2 },
 
   // Competition card
   compCard: {
@@ -549,7 +563,7 @@ const styles = StyleSheet.create({
   },
   compTop:     { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   compTitleRow:{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
-  compName:    { color: C.textPrimary, fontSize: 15, fontWeight: "900", letterSpacing: 1, flex: 1 },
+  compName:    { color: C.textPrimary, fontSize: 15, fontFamily: SANS_900, letterSpacing: 1, flex: 1 },
   compLocation:{ fontFamily: MONO, color: C.textDim, fontSize: 10 },
   compTeamName:{ fontFamily: MONO, color: C.purple, fontSize: 10, letterSpacing: 1 },
 

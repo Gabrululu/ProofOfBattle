@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 import { useSeekerWs } from "../hooks/useSeekerWs";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 const COMMANDS: { label: string; text: string; color: string }[] = [
   { label: "⚔ ATTACK",   text: "attack the enemy with maximum force",         color: C.danger  },
@@ -195,15 +195,15 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   sideBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3 },
-  sideBadgeText: { color: "#000", fontWeight: "900", fontSize: 9, letterSpacing: 1 },
-  title: { color: C.textPrimary, fontSize: 12, fontWeight: "900", letterSpacing: 2 },
+  sideBadgeText: { color: "#000", fontFamily: SANS_900, fontSize: 9, letterSpacing: 1 },
+  title: { color: C.textPrimary, fontSize: 12, fontFamily: SANS_900, letterSpacing: 2 },
   connRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   connDot: { width: 6, height: 6, borderRadius: 3 },
   connText: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
 
   hpStrip: {
     flexDirection: "row",
-    backgroundColor: "#050510",
+    backgroundColor: C.bg,
     borderRadius: 8,
     padding: 10,
     alignItems: "center",
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   hpLabel: { fontFamily: MONO, color: C.textDim, fontSize: 8, letterSpacing: 2 },
 
   logBox: {
-    backgroundColor: "#050510",
+    backgroundColor: C.bg,
     borderRadius: 8,
     padding: 10,
     minHeight: 36,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   voiceBtnActive: {
-    backgroundColor: "#1a0010",
+    backgroundColor: C.danger + "22",
     borderColor: C.danger,
     shadowColor: C.danger,
     shadowOpacity: 0.5,

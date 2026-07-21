@@ -25,11 +25,11 @@ function StatSlider({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between items-center">
-        <span className="text-[9px] font-mono tracking-widest text-gray-600 uppercase">{label}</span>
+        <span className="text-[9px] font-mono tracking-widest text-muted uppercase">{label}</span>
         <span className={`text-[11px] font-black tabular-nums ${textClass}`}>{value}</span>
       </div>
       <div className="relative h-2 flex items-center">
-        <div className="absolute inset-0 bg-gray-900 rounded-full" />
+        <div className="absolute inset-0 bg-surface rounded-full" />
         <div
           className="absolute left-0 top-0 h-full rounded-full transition-all"
           style={{ width: `${value}%`, backgroundColor: accentColor, opacity: 0.7 }}
@@ -111,19 +111,19 @@ export function RobotRegister() {
   const total = attack + defense + speed;
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-lg mx-auto pb-24">
+    <div className="flex flex-col gap-4 p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div>
-        <h2 className="text-sm font-black tracking-[0.3em] text-gray-200 uppercase">
+        <h2 className="text-sm font-black tracking-[0.3em] text-foreground uppercase">
           Register Robot
         </h2>
-        <p className="text-[9px] text-gray-600 tracking-wider mt-0.5">
+        <p className="text-[9px] text-muted tracking-wider mt-0.5">
           Inscribe your competition robot on-chain
         </p>
       </div>
 
       {/* Name */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-[9px] tracking-widest text-gray-500 uppercase font-mono">
+        <label className="text-[9px] tracking-widest text-muted uppercase font-mono">
           Robot Name
         </label>
         <input
@@ -132,21 +132,21 @@ export function RobotRegister() {
           onChange={(e) => setName(e.target.value)}
           maxLength={32}
           placeholder="e.g. THUNDER-MK2"
-          className="bg-[#0c0c1a] border border-gray-800 rounded-lg px-3 py-2.5 text-xs font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-purple-700 transition-colors"
+          className="bg-surface border border-border rounded-lg px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
         />
         <div className="flex justify-between">
-          <span className="text-[8px] text-gray-700 font-mono">Max 32 characters</span>
-          <span className="text-[8px] text-gray-700 font-mono">{name.length}/32</span>
+          <span className="text-[8px] text-muted font-mono">Max 32 characters</span>
+          <span className="text-[8px] text-muted font-mono">{name.length}/32</span>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="bg-[#08080f] border border-gray-900 rounded-lg p-4 flex flex-col gap-4">
+      <div className="bg-surface border border-border rounded-lg p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <p className="text-[8px] tracking-[0.3em] text-gray-700 uppercase">Combat Stats</p>
+          <p className="text-[8px] tracking-[0.3em] text-muted uppercase">Combat Stats</p>
           <span
             className={`text-[9px] font-mono font-bold ${
-              total > 240 ? "text-red-400" : total > 180 ? "text-yellow-400" : "text-gray-600"
+              total > 240 ? "text-red-400" : total > 180 ? "text-yellow-400" : "text-muted"
             }`}
           >
             {total} / 300 pts
@@ -176,11 +176,11 @@ export function RobotRegister() {
       </div>
 
       {/* Categories */}
-      <div className="bg-[#08080f] border border-gray-900 rounded-lg p-4 flex flex-col gap-3">
-        <p className="text-[8px] tracking-[0.3em] text-gray-700 uppercase">
+      <div className="bg-surface border border-border rounded-lg p-4 flex flex-col gap-3">
+        <p className="text-[8px] tracking-[0.3em] text-muted uppercase">
           Competition Categories
         </p>
-        <p className="text-[8px] text-gray-600">
+        <p className="text-[8px] text-muted">
           Select the categories this robot is designed for
         </p>
         <div className="flex flex-wrap gap-2">
@@ -190,8 +190,8 @@ export function RobotRegister() {
               onClick={() => toggleCategory(cat)}
               className={`px-3 py-1.5 rounded-full text-[9px] font-mono font-bold border transition-all ${
                 categories.includes(cat)
-                  ? "border-purple-600 bg-purple-950/60 text-purple-300"
-                  : "border-gray-800 bg-transparent text-gray-600 hover:border-gray-600 hover:text-gray-400"
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-transparent text-muted hover:border-primary/40 hover:text-foreground"
               }`}
             >
               {cat}
@@ -199,7 +199,7 @@ export function RobotRegister() {
           ))}
         </div>
         {categories.length > 0 && (
-          <p className="text-[8px] text-purple-500 font-mono">
+          <p className="text-[8px] text-primary font-mono">
             Selected: {categories.join(", ")}
           </p>
         )}
@@ -209,7 +209,7 @@ export function RobotRegister() {
       <button
         onClick={handleRegister}
         disabled={loading || !name.trim()}
-        className="w-full py-4 rounded-xl font-black text-sm tracking-[0.3em] bg-purple-700 hover:bg-purple-600 disabled:bg-gray-900 disabled:text-gray-700 disabled:cursor-not-allowed text-white transition-all shadow-lg"
+        className="w-full py-4 rounded-xl font-black text-sm tracking-[0.3em] bg-primary hover:brightness-110 disabled:bg-surface disabled:text-muted disabled:cursor-not-allowed text-white transition-all shadow-lg"
       >
         {loading
           ? "◌ REGISTERING…"
@@ -233,7 +233,7 @@ export function RobotRegister() {
               setDefense(60);
               setSpeed(65);
             }}
-            className="mt-1 text-[8px] text-gray-600 hover:text-gray-400 self-start"
+            className="mt-1 text-[8px] text-muted hover:text-foreground self-start"
           >
             Register another →
           </button>

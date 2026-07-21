@@ -6,7 +6,7 @@ import {
 import { useRouter, Href } from "expo-router";
 import { useWallet } from "../hooks/useWallet";
 import { BRIDGE_BASE_URL } from "../lib/constants";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 type BattleRecord = {
   battle_id: number;
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardTop:     { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  cardName:    { color: C.textPrimary, fontSize: 14, fontWeight: "900", letterSpacing: 1 },
+  cardName:    { color: C.textPrimary, fontSize: 14, fontFamily: SANS_900, letterSpacing: 1 },
   cardLocation:{ fontFamily: MONO, color: C.textDim, fontSize: 9, marginTop: 2 },
 
   statusChip: {

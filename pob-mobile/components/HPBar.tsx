@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_900 } from "../lib/theme";
 
 interface Props {
   label: string;
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   labelRow:      { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
   labelRowRight: { flexDirection: "row-reverse" },
 
-  label: { fontSize: 9, fontWeight: "900", letterSpacing: 3 },
+  label: { fontSize: 9, fontFamily: SANS_900, letterSpacing: 3 },
   hpVal: { fontFamily: MONO, fontSize: 11, fontWeight: "700" },
 
   bar:      { flexDirection: "row", gap: 2 },

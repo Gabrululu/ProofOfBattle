@@ -68,10 +68,10 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
   };
 
   return (
-    <div className="border border-gray-900 rounded-lg p-3 bg-[#08080f] flex flex-col gap-3">
+    <div className="border border-border rounded-lg p-3 bg-surface flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[9px] tracking-[0.3em] text-gray-600 uppercase">Place Bet</span>
+        <span className="text-[9px] tracking-[0.3em] text-muted uppercase">Place Bet</span>
         {totalPool > 0 && (
           <span className="text-[9px] font-mono text-yellow-600">
             Pool: {totalPool.toFixed(2)} SOL
@@ -81,14 +81,14 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
 
       {/* Odds bar */}
       <div className="flex items-center gap-2">
-        <span className="text-[9px] font-bold text-blue-400 truncate max-w-[80px]">{nameA} {pctA}%</span>
-        <div className="flex-1 h-1.5 bg-gray-900 rounded-full overflow-hidden">
+        <span className="text-[9px] font-bold text-secondary truncate max-w-[80px]">{nameA} {pctA}%</span>
+        <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
-            style={{ background: `linear-gradient(to right, #2563eb ${pctA}%, #dc2626 ${pctA}%)` }}
+            style={{ background: `linear-gradient(to right, var(--color-secondary) ${pctA}%, var(--color-primary) ${pctA}%)` }}
           />
         </div>
-        <span className="text-[9px] font-bold text-red-400 truncate max-w-[80px] text-right">{pctB}% {nameB}</span>
+        <span className="text-[9px] font-bold text-primary truncate max-w-[80px] text-right">{pctB}% {nameB}</span>
       </div>
 
       {/* Bet buttons */}
@@ -97,14 +97,14 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
           <button
             onClick={() => bet(0)}
             disabled={loading !== null}
-            className="py-2.5 rounded border border-blue-900/60 bg-blue-950/30 text-blue-400 hover:bg-blue-900/40 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
+            className="py-2.5 rounded border border-secondary/60 bg-secondary/10 text-secondary hover:bg-secondary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
           >
             {loading === "a" ? "◌ SENDING…" : `▲ ${nameA}`}
           </button>
           <button
             onClick={() => bet(1)}
             disabled={loading !== null}
-            className="py-2.5 rounded border border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/40 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
+            className="py-2.5 rounded border border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
           >
             {loading === "b" ? "◌ SENDING…" : `▲ ${nameB}`}
           </button>

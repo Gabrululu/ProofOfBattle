@@ -10,14 +10,14 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#05050f"
+      "backgroundColor": "#05060D"
     },
     "android": {
       "package": "xyz.proofofbattle.mobile",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#05050f"
+        "backgroundColor": "#05060D"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO"
@@ -27,8 +27,11 @@
       "expo-router",
       [
         "expo-av",
-        { "microphonePermission": "Allow Proof of Battle to record voice commands for your robot." }
-      ]
+        {
+          "microphonePermission": "Allow Proof of Battle to record voice commands for your robot."
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

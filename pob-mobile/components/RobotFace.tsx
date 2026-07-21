@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, View, Text, StyleSheet } from "react-native";
-import { C } from "../lib/theme";
+import { C, SANS_900 } from "../lib/theme";
 
 interface Props {
   size?: number;
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   label: {
-    fontWeight: "900",
+    fontFamily: SANS_900,
     letterSpacing: 4,
   },
 });

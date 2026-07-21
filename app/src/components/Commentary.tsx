@@ -28,15 +28,15 @@ export function Commentary({ lines, audioBase64 }: Props) {
   }, [audioBase64]);
 
   return (
-    <div className="relative border border-gray-800 rounded-lg overflow-hidden bg-[#08080f]">
+    <div className="relative border border-border rounded-lg overflow-hidden bg-surface">
       {/* TV header bar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-800 bg-black/40">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-black/40">
         <span className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-live-blink" />
           <span className="text-[9px] font-black tracking-[0.3em] text-red-400">ON AIR</span>
         </span>
-        <div className="flex-1 h-px bg-gray-800" />
-        <span className="text-[9px] font-mono text-gray-600 tracking-widest">ELEVENLABS COMMENTARY</span>
+        <div className="flex-1 h-px bg-surface" />
+        <span className="text-[9px] font-mono text-muted tracking-widest">ELEVENLABS COMMENTARY</span>
       </div>
 
       {/* Lines */}
@@ -47,7 +47,7 @@ export function Commentary({ lines, audioBase64 }: Props) {
             className={`text-sm leading-snug font-mono ${
               i === lines.length - 1
                 ? "text-white animate-slide-up"
-                : "text-gray-500"
+                : "text-muted"
             }`}
           >
             {line}

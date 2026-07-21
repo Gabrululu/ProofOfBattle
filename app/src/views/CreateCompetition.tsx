@@ -16,8 +16,8 @@ interface Props {
 function RobotStatRow({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[8px] font-mono text-gray-600 w-8">{label}</span>
-      <div className="flex-1 h-1 bg-gray-900 rounded-full overflow-hidden">
+      <span className="text-[8px] font-mono text-muted w-8">{label}</span>
+      <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden">
         <div
           className="h-full rounded-full"
           style={{ width: `${value}%`, backgroundColor: color }}
@@ -54,7 +54,7 @@ function RobotCard({
   const accentColor = isA ? "#3b82f6" : "#ef4444";
 
   return (
-    <div className={`bg-[#08080f] border ${borderColor} rounded-xl p-4 flex flex-col gap-3`}>
+    <div className={`bg-surface border ${borderColor} rounded-xl p-4 flex flex-col gap-3`}>
       <div className="flex items-center gap-2">
         <span
           className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black text-white"
@@ -78,12 +78,12 @@ function RobotCard({
             value={walletInput}
             onChange={(e) => onWalletChange(e.target.value)}
             placeholder={isA ? "Your wallet address (optional)" : "Opponent wallet address"}
-            className="flex-1 bg-[#05050f] border border-gray-800 rounded-lg px-2.5 py-2 text-[9px] font-mono text-gray-300 placeholder:text-gray-700 focus:outline-none focus:border-purple-700"
+            className="flex-1 bg-background border border-border rounded-lg px-2.5 py-2 text-[9px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
           />
           <button
             onClick={onSearch}
             disabled={loading || !walletInput.trim()}
-            className="px-3 py-2 rounded-lg text-[9px] font-mono font-bold border border-purple-800/60 text-purple-400 bg-purple-950/30 hover:bg-purple-900/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-3 py-2 rounded-lg text-[9px] font-mono font-bold border border-primary/60 text-primary bg-primary/30 hover:bg-primary/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "◌" : "SEARCH"}
           </button>
@@ -92,32 +92,32 @@ function RobotCard({
 
       {/* Robot name input */}
       <div className="flex flex-col gap-1">
-        <label className="text-[8px] text-gray-600 font-mono tracking-widest">NAME</label>
+        <label className="text-[8px] text-muted font-mono tracking-widest">NAME</label>
         <input
           type="text"
           value={robot?.name ?? ""}
           onChange={(e) => onNameChange(e.target.value)}
           maxLength={32}
           placeholder={isA ? "UNIT-ALPHA" : "UNIT-BETA"}
-          className="bg-[#05050f] border border-gray-800 rounded-lg px-2.5 py-2 text-[10px] font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-purple-700 transition-colors"
+          className="bg-background border border-border rounded-lg px-2.5 py-2 text-[10px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
         />
       </div>
 
       {/* Stats */}
       <div className="flex flex-col gap-1.5">
         {(["attack", "defense", "speed"] as const).map((stat) => {
-          const colors = { attack: "#ef4444", defense: "#3b82f6", speed: "#22c55e" };
+          const colors = { attack: "var(--color-primary)", defense: "var(--color-secondary)", speed: "#FBBF24" };
           const labels = { attack: "ATK", defense: "DEF", speed: "SPD" };
           return (
             <div key={stat} className="flex items-center gap-2">
-              <span className="text-[8px] font-mono text-gray-600 w-8">{labels[stat]}</span>
+              <span className="text-[8px] font-mono text-muted w-8">{labels[stat]}</span>
               <input
                 type="range"
                 min={0}
                 max={100}
                 value={robot?.[stat] ?? 70}
                 onChange={(e) => onStatChange(stat, Number(e.target.value))}
-                className="flex-1 h-1 appearance-none bg-gray-900 rounded-full cursor-pointer"
+                className="flex-1 h-1 appearance-none bg-surface rounded-full cursor-pointer"
                 style={{ accentColor: colors[stat] }}
               />
               <span
@@ -268,23 +268,23 @@ export function CreateCompetition({ onCreated }: Props) {
 
   if (created) {
     return (
-      <div className="flex flex-col gap-5 p-6 max-w-lg mx-auto items-center text-center pb-24"
+      <div className="flex flex-col gap-5 p-6 md:p-8 max-w-lg mx-auto items-center text-center pb-24 md:pb-8"
            style={{ animation: "fade-up 0.4s ease-out both" }}>
         <div className="text-5xl">⚔</div>
         <div>
           <h2 className="text-base font-black tracking-[0.2em] text-green-300">COMPETENCIA CREADA</h2>
-          <p className="text-[10px] text-gray-500 mt-1 font-mono">{created.name}</p>
+          <p className="text-[10px] text-muted mt-1 font-mono">{created.name}</p>
         </div>
-        <div className="bg-[#08080f] border border-green-900/40 rounded-xl p-5 w-full text-left flex flex-col gap-2">
-          <p className="text-[8px] text-gray-600 uppercase tracking-widest font-mono">Battle ID</p>
+        <div className="bg-surface border border-green-900/40 rounded-xl p-5 w-full text-left flex flex-col gap-2">
+          <p className="text-[8px] text-muted uppercase tracking-widest font-mono">Battle ID</p>
           <p className="text-2xl font-black text-green-300 font-mono">{created.id}</p>
-          <p className="text-[8px] text-gray-600">
-            Ve a la pestaña <span className="text-purple-400">LIVE</span> para iniciar la batalla cuando ambos competidores estén listos.
+          <p className="text-[8px] text-muted">
+            Ve a la pestaña <span className="text-primary">LIVE</span> para iniciar la batalla cuando ambos competidores estén listos.
           </p>
         </div>
         <button
           onClick={() => { setCreated(null); setName(""); setLocation(""); setTeamName(""); setMembers([{ wallet: "", alias: "", share: 100 }]); }}
-          className="px-5 py-2.5 rounded-lg border border-gray-800 text-gray-400 text-[10px] font-mono hover:border-gray-600 hover:text-gray-200 transition-colors tracking-widest"
+          className="px-5 py-2.5 rounded-lg border border-border text-muted text-[10px] font-mono hover:border-primary/40 hover:text-foreground transition-colors tracking-widest"
         >
           ← CREAR OTRA
         </button>
@@ -293,28 +293,28 @@ export function CreateCompetition({ onCreated }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-lg mx-auto pb-24">
+    <div className="flex flex-col gap-4 p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div>
-        <h2 className="text-sm font-black tracking-[0.3em] text-gray-200 uppercase">Nueva Competencia</h2>
-        <p className="text-[9px] text-gray-600 tracking-wider mt-0.5">Registra tu evento y elige los robots</p>
+        <h2 className="text-sm font-black tracking-[0.3em] text-foreground uppercase">Nueva Competencia</h2>
+        <p className="text-[9px] text-muted tracking-wider mt-0.5">Registra tu evento y elige los robots</p>
       </div>
 
       {/* Competition info */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-[9px] tracking-widest text-gray-500 uppercase font-mono">Nombre</label>
+        <label className="text-[9px] tracking-widest text-muted uppercase font-mono">Nombre</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)}
           placeholder="ej. Lima Robotics Open 2025"
-          className="bg-[#0c0c1a] border border-gray-800 rounded-lg px-3 py-2.5 text-xs font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-purple-700 transition-colors" />
+          className="bg-surface border border-border rounded-lg px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors" />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-[9px] tracking-widest text-gray-500 uppercase font-mono">Lugar / Venue</label>
+        <label className="text-[9px] tracking-widest text-muted uppercase font-mono">Lugar / Venue</label>
         <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
           placeholder="ej. UNI, Lima, Peru"
-          className="bg-[#0c0c1a] border border-gray-800 rounded-lg px-3 py-2.5 text-xs font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-purple-700 transition-colors" />
+          className="bg-surface border border-border rounded-lg px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors" />
       </div>
 
       {/* Robot pickers */}
-      <p className="text-[8px] tracking-[0.3em] text-gray-700 uppercase font-mono mt-1">Robots combatientes</p>
+      <p className="text-[8px] tracking-[0.3em] text-muted uppercase font-mono mt-1">Robots combatientes</p>
       <RobotCard
         role="A"
         robot={robotA}
@@ -337,55 +337,55 @@ export function CreateCompetition({ onCreated }: Props) {
       />
 
       {/* Team toggle */}
-      <div className="bg-[#08080f] border border-gray-900 rounded-xl overflow-hidden">
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between p-4">
           <div>
-            <p className="text-[10px] font-bold text-gray-300 tracking-wider">Competencia de equipo</p>
-            <p className="text-[8px] text-gray-600 mt-0.5">Invita compañeros y distribuye ganancias</p>
+            <p className="text-[10px] font-bold text-foreground tracking-wider">Competencia de equipo</p>
+            <p className="text-[8px] text-muted mt-0.5">Invita compañeros y distribuye ganancias</p>
           </div>
           <button
             onClick={() => setIsTeam((t) => !t)}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${isTeam ? "bg-purple-700" : "bg-gray-800"}`}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${isTeam ? "bg-primary" : "bg-surface"}`}
           >
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${isTeam ? "translate-x-5" : ""}`} />
           </button>
         </div>
 
         {isTeam && (
-          <div className="flex flex-col gap-3 px-4 pb-4 border-t border-gray-900">
+          <div className="flex flex-col gap-3 px-4 pb-4 border-t border-border">
             <div className="flex flex-col gap-1 pt-3">
-              <label className="text-[9px] tracking-widest text-gray-600 uppercase font-mono">Nombre del equipo</label>
+              <label className="text-[9px] tracking-widest text-muted uppercase font-mono">Nombre del equipo</label>
               <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)}
                 placeholder="ej. Team Alpha"
-                className="bg-[#05050f] border border-gray-800 rounded-lg px-3 py-2 text-[10px] font-mono text-gray-200 placeholder:text-gray-700 focus:outline-none focus:border-purple-700" />
+                className="bg-background border border-border rounded-lg px-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary" />
             </div>
-            <p className="text-[8px] text-gray-600 uppercase tracking-widest font-mono mt-1">Miembros y reparto</p>
+            <p className="text-[8px] text-muted uppercase tracking-widest font-mono mt-1">Miembros y reparto</p>
             {members.map((m, i) => (
-              <div key={i} className="flex flex-col gap-2 p-3 border border-gray-800/60 rounded-lg bg-[#05050f]">
+              <div key={i} className="flex flex-col gap-2 p-3 border border-border/60 rounded-lg bg-background">
                 <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-purple-500 font-mono font-bold">MIEMBRO {i + 1}</span>
+                  <span className="text-[8px] text-primary font-mono font-bold">MIEMBRO {i + 1}</span>
                   {members.length > 1 && (
                     <button onClick={() => removeMember(i)} className="text-[8px] text-red-700 hover:text-red-500 font-mono">QUITAR</button>
                   )}
                 </div>
                 <input type="text" value={m.wallet} onChange={(e) => updateMember(i, "wallet", e.target.value)}
                   placeholder="Wallet (opcional)"
-                  className="bg-[#08080f] border border-gray-800 rounded px-2.5 py-1.5 text-[9px] font-mono text-gray-300 placeholder:text-gray-700 focus:outline-none focus:border-purple-800" />
+                  className="bg-surface border border-border rounded px-2.5 py-1.5 text-[9px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary" />
                 <div className="flex gap-2">
                   <input type="text" value={m.alias} onChange={(e) => updateMember(i, "alias", e.target.value)}
                     placeholder="Nombre"
-                    className="flex-1 bg-[#08080f] border border-gray-800 rounded px-2.5 py-1.5 text-[9px] font-mono text-gray-300 placeholder:text-gray-700 focus:outline-none focus:border-purple-800" />
+                    className="flex-1 bg-surface border border-border rounded px-2.5 py-1.5 text-[9px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary" />
                   <div className="flex items-center gap-1">
                     <input type="number" value={m.share} min={0} max={100}
                       onChange={(e) => updateMember(i, "share", Number(e.target.value))}
-                      className="w-14 bg-[#08080f] border border-gray-800 rounded px-2 py-1.5 text-[9px] font-mono text-yellow-400 text-center focus:outline-none focus:border-purple-800" />
-                    <span className="text-[9px] text-gray-600 font-mono">%</span>
+                      className="w-14 bg-surface border border-border rounded px-2 py-1.5 text-[9px] font-mono text-yellow-400 text-center focus:outline-none focus:border-primary" />
+                    <span className="text-[9px] text-muted font-mono">%</span>
                   </div>
                 </div>
               </div>
             ))}
             <div className="flex items-center justify-between pt-1">
-              <button onClick={addMember} className="text-[9px] font-mono text-purple-500 hover:text-purple-300 border border-purple-900/60 px-3 py-1.5 rounded-lg transition-colors">
+              <button onClick={addMember} className="text-[9px] font-mono text-primary hover:bg-primary/10 border border-primary/60 px-3 py-1.5 rounded-lg transition-colors">
                 + AGREGAR MIEMBRO
               </button>
               <span className={`text-[9px] font-mono font-bold ${totalShare === 100 ? "text-green-400" : totalShare > 100 ? "text-red-400" : "text-yellow-400"}`}>
@@ -403,7 +403,7 @@ export function CreateCompetition({ onCreated }: Props) {
       <button
         onClick={handleCreate}
         disabled={loading || !name.trim() || !location.trim()}
-        className="w-full py-4 rounded-xl font-black text-sm tracking-[0.3em] bg-purple-700 hover:bg-purple-600 disabled:bg-gray-900 disabled:text-gray-700 disabled:cursor-not-allowed text-white transition-all shadow-lg"
+        className="w-full py-4 rounded-xl font-black text-sm tracking-[0.3em] bg-primary hover:brightness-110 disabled:bg-surface disabled:text-muted disabled:cursor-not-allowed text-white transition-all shadow-lg"
       >
         {loading ? "◌ CREANDO…" : !connected ? "CONECTA TU WALLET" : "⬤ CREAR COMPETENCIA"}
       </button>

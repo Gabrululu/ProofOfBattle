@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Marketing landing theme tokens (from proofofbattle-web) ───── */
+:root {
+  --color-background: #05060D;
+  --color-foreground: #F2F2F2;
+  --color-muted: #6B7A99;
+  --color-primary: #FF2D4A;
+  --color-primary-deep: #B3142C;
+  --color-secondary: #2D7BFF;
+  --color-secondary-deep: #0F3FB3;
+  --color-accent: #6EA8FF;
+  --color-border: #15203A;
+  --color-surface: #0B1124;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.scanline-effect {
+  position: relative;
+  overflow: hidden;
+}
+.scanline-effect::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 45, 74, 0.35), rgba(45, 123, 255, 0.35), transparent);
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
+}
+
+.animate-ticker {
+  animation: ticker 40s linear infinite;
+}
+
 html, body, #root {
   background-color: #05050f;
   color: white;
@@ -34,13 +75,13 @@ body::after {
 }
 
 @keyframes glow-blue {
-  0%, 100% { box-shadow: 0 0 6px #3b82f6, 0 0 14px rgba(59,130,246,0.35); }
-  50%       { box-shadow: 0 0 14px #60a5fa, 0 0 28px rgba(59,130,246,0.55); }
+  0%, 100% { box-shadow: 0 0 6px #2D7BFF, 0 0 14px rgba(45,123,255,0.35); }
+  50%       { box-shadow: 0 0 14px #6EA8FF, 0 0 28px rgba(45,123,255,0.55); }
 }
 
 @keyframes glow-red {
-  0%, 100% { box-shadow: 0 0 6px #ef4444, 0 0 14px rgba(239,68,68,0.35); }
-  50%       { box-shadow: 0 0 14px #f87171, 0 0 28px rgba(239,68,68,0.55); }
+  0%, 100% { box-shadow: 0 0 6px #FF2D4A, 0 0 14px rgba(255,45,74,0.35); }
+  50%       { box-shadow: 0 0 14px #FF6B82, 0 0 28px rgba(255,45,74,0.55); }
 }
 
 @keyframes shake {
@@ -97,7 +138,7 @@ body::after {
 .animate-winner-pulse { animation: winner-pulse 1.5s ease-in-out infinite; }
 .animate-border-flicker { animation: border-flicker 4s ease-in-out infinite; }
 
-.text-glow-blue  { text-shadow: 0 0 12px #3b82f6, 0 0 24px rgba(59,130,246,0.4); }
-.text-glow-red   { text-shadow: 0 0 12px #ef4444, 0 0 24px rgba(239,68,68,0.4); }
+.text-glow-blue  { text-shadow: 0 0 12px #2D7BFF, 0 0 24px rgba(45,123,255,0.4); }
+.text-glow-red   { text-shadow: 0 0 12px #FF2D4A, 0 0 24px rgba(255,45,74,0.4); }
 .text-glow-white { text-shadow: 0 0 10px rgba(255,255,255,0.7); }
 .text-glow-gold  { text-shadow: 0 0 12px #fbbf24, 0 0 24px rgba(251,191,36,0.5); }

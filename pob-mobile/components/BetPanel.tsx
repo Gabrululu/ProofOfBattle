@@ -9,7 +9,7 @@ import {
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { connection, getBattlePDA, getVaultPDA, getBetPDA } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
-import { C, MONO } from "../lib/theme";
+import { C, MONO, SANS_700, SANS_900 } from "../lib/theme";
 import { useWallet } from "../hooks/useWallet";
 import { toast } from "./Toast";
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   connectBtnText: {
-    color: "#fff", fontWeight: "900",
+    color: "#fff", fontFamily: SANS_900,
     fontSize: 13, letterSpacing: 3,
   },
 
@@ -278,12 +278,12 @@ const styles = StyleSheet.create({
     backgroundColor: C.bgAccent,
   },
   sideBtnLabel: {
-    color: C.textPrimary, fontWeight: "900",
+    color: C.textPrimary, fontFamily: SANS_900,
     fontSize: 13, letterSpacing: 1,
   },
   sideOdds: { color: C.textDim, fontFamily: MONO, fontSize: 10 },
   vsSmall:  { paddingHorizontal: 2 },
-  vsText:   { color: C.textDim, fontSize: 11, fontWeight: "700" },
+  vsText:   { color: C.textDim, fontSize: 11, fontFamily: SANS_700 },
 
   // Amount
   amountRow: { flexDirection: "row", gap: 6 },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bgAccent, shadowOpacity: 0, elevation: 0,
   },
   betBtnText: {
-    color: "#fff", fontWeight: "900",
+    color: "#fff", fontFamily: SANS_900,
     fontSize: 13, letterSpacing: 2,
   },
 });
