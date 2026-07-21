@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl,
+  StyleSheet, ActivityIndicator, RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { BRIDGE_BASE_URL } from "../lib/constants";
 import { C, MONO, SANS_900 } from "../lib/theme";

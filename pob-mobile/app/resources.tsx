@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Linking } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { C, MONO, SANS_900 } from "../lib/theme";
 

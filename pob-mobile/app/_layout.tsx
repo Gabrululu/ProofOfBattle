@@ -5,6 +5,7 @@ import { Buffer } from "buffer";
 (global as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
 
 import { View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts, Inter_700Bold, Inter_900Black } from "@expo-google-fonts/inter";
@@ -33,24 +34,26 @@ export default function RootLayout() {
   }
 
   return (
-    <WalletProvider>
-      <StatusBar style="light" />
-      <ToastContainer />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: C.bg },
-          headerTintColor: C.purple,
-          headerTitleStyle: { fontWeight: "bold" },
-          contentStyle: { backgroundColor: C.bg },
-        }}
-      >
-        <Stack.Screen name="index"       options={{ headerShown: false }} />
-        <Stack.Screen name="home"        options={{ title: "PROOF OF BATTLE", headerBackVisible: false }} />
-        <Stack.Screen name="compete"     options={{ title: "CREATE COMPETITION" }} />
-        <Stack.Screen name="leaderboard" options={{ title: "LEADERBOARD" }} />
-        <Stack.Screen name="history"     options={{ title: "MY BATTLES"  }} />
-        <Stack.Screen name="resources"   options={{ title: "BUILDER RESOURCES" }} />
-      </Stack>
-    </WalletProvider>
+    <SafeAreaProvider>
+      <WalletProvider>
+        <StatusBar style="light" />
+        <ToastContainer />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: C.bg },
+            headerTintColor: C.purple,
+            headerTitleStyle: { fontWeight: "bold" },
+            contentStyle: { backgroundColor: C.bg },
+          }}
+        >
+          <Stack.Screen name="index"       options={{ headerShown: false }} />
+          <Stack.Screen name="home"        options={{ title: "PROOF OF BATTLE", headerBackVisible: false }} />
+          <Stack.Screen name="compete"     options={{ title: "CREATE COMPETITION" }} />
+          <Stack.Screen name="leaderboard" options={{ title: "LEADERBOARD" }} />
+          <Stack.Screen name="history"     options={{ title: "MY BATTLES"  }} />
+          <Stack.Screen name="resources"   options={{ title: "BUILDER RESOURCES" }} />
+        </Stack>
+      </WalletProvider>
+    </SafeAreaProvider>
   );
 }

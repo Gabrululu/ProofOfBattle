@@ -2,9 +2,10 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { useLocalSearchParams, Stack } from "expo-router";
 import {
   View, Text, ScrollView, StyleSheet,
-  SafeAreaView, Animated, ActivityIndicator,
+  Animated, ActivityIndicator,
   TouchableOpacity, Share,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { BattleEvent } from "../../hooks/useBattle";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { useBattle }    from "../../hooks/useBattle";

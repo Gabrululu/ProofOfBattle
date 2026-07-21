@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, Animated, ActivityIndicator,
+  StyleSheet, Animated, ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, Href } from "expo-router";
 import { PublicKey }    from "@solana/web3.js";
 import { RobotFace }    from "../components/RobotFace";

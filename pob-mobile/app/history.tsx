@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView,
+  View, Text, ScrollView, StyleSheet,
   TouchableOpacity, ActivityIndicator, RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, Href } from "expo-router";
 import { useWallet } from "../hooks/useWallet";
 import { BRIDGE_BASE_URL } from "../lib/constants";

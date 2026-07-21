@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, Animated, Dimensions,
+  Animated, ScrollView,
 } from "react-native";
+import { Image } from "expo-image";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, Href } from "expo-router";
-import { RobotFace } from "../components/RobotFace";
 import { C, MONO, SANS_900 } from "../lib/theme";
 
-const { width: W } = Dimensions.get("window");
+const BOOT_DURATION = 2200;
+const BLOCKS = 12;
 
 const BOOT_LINES = [
   { delay: 0,    color: C.textDim,  text: "POBIOS v1.0  ·  PROOF OF BATTLE SYSTEMS" },
@@ -18,71 +20,91 @@ const BOOT_LINES = [
   { delay: 1500, color: C.green,    text: "> ALL SYSTEMS GO — ARENA ONLINE ✓" },
 ];
 
-function BootLine({ text, color, delay }: { text: string; color: string; delay: number }) {
-  const op = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(op, {
-      toValue: 1, duration: 250, delay, useNativeDriver: true,
-    }).start();
-  }, []);
-  return (
-    <Animated.Text style={[styles.bootLine, { color, opacity: op }]}>
-      {text}
-    </Animated.Text>
-  );
-}
-
-function GlowRing({ size, color, delay }: { size: number; color: string; delay: number }) {
-  const scale = useRef(new Animated.Value(0.85)).current;
-  const op    = useRef(new Animated.Value(0.6)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.08, duration: 1600, delay, useNativeDriver: true }),
-          Animated.timing(op,    { toValue: 0.15, duration: 1600, delay, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 0.85, duration: 1600, useNativeDriver: true }),
-          Animated.timing(op,    { toValue: 0.6,  duration: 1600, useNativeDriver: true }),
-        ]),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  return (
-    <Animated.View style={{
-      position: "absolute",
-      width: size, height: size, borderRadius: size / 2,
-      borderWidth: 1.5, borderColor: color,
-      opacity: op, transform: [{ scale }],
-    }} />
-  );
-}
-
 const FEATURES = [
   { icon: "⛓", label: "ON-CHAIN RECORD", color: C.purple },
   { icon: "🎙", label: "VOICE COMMANDS",  color: C.teal   },
   { icon: "🤖", label: "AI AGENT (ARES)", color: C.green  },
 ];
 
+// ── Phase 1: boot screen (mirrors the web's LoadingScreen) ───────────────────
+
+function BootScreen({ progress }: { progress: number }) {
+  const filled = Math.round((progress / 100) * BLOCKS);
+  return (
+    <View style={boot.wrap}>
+      <View style={boot.tether} />
+      <Text style={boot.mark}>⌬PB</Text>
+      <Text style={boot.title}>PROOF OF BATTLE{"\n"}IS INITIALIZING</Text>
+
+      <View style={boot.blocksRow}>
+        {Array.from({ length: BLOCKS }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              boot.block,
+              i < filled && boot.blockFilled,
+            ]}
+          />
+        ))}
+      </View>
+      <Text style={boot.pct}>▲ {progress}%</Text>
+
+      <Text style={boot.caption}>BOOTING ARENA SYSTEMS…</Text>
+    </View>
+  );
+}
+
+// ── Phase 2: landing hero (mirrors the web's marketing hero) ─────────────────
+
+function BootLine({ text, color, delay }: { text: string; color: string; delay: number }) {
+  const op = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(op, { toValue: 1, duration: 250, delay, useNativeDriver: true }).start();
+  }, []);
+  return (
+    <Animated.Text
+      style={[landing.bootLine, { color, opacity: op }]}
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
+      {text}
+    </Animated.Text>
+  );
+}
+
 export default function LandingScreen() {
   const router   = useRouter();
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase]       = useState<"boot" | "landing">("boot");
+  const [ready, setReady]       = useState(false);
+
   const heroOp   = useRef(new Animated.Value(0)).current;
-  const heroY    = useRef(new Animated.Value(24)).current;
+  const heroY    = useRef(new Animated.Value(16)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
-  const [ready, setReady] = useState(false);
+
+  // Drive the boot progress bar, then hand off to the landing hero.
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      const p = Math.min(100, Math.round(((Date.now() - start) / BOOT_DURATION) * 100));
+      setProgress(p);
+      if (p >= 100) {
+        clearInterval(id);
+        setTimeout(() => setPhase("landing"), 300);
+      }
+    }, 60);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
+    if (phase !== "landing") return;
     Animated.parallel([
-      Animated.timing(heroOp, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(heroY,  { toValue: 0, duration: 700, useNativeDriver: true }),
+      Animated.timing(heroOp, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(heroY,  { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
-
-    const t = setTimeout(() => setReady(true), 1700);
+    const t = setTimeout(() => setReady(true), 500);
     return () => clearTimeout(t);
-  }, []);
+  }, [phase]);
 
   const handleEnter = () => {
     Animated.sequence([
@@ -91,150 +113,190 @@ export default function LandingScreen() {
     ]).start(() => router.replace("/home" as Href));
   };
 
+  if (phase === "boot") {
+    return (
+      <SafeAreaView style={landing.safe}>
+        <BootScreen progress={progress} />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+    <View style={landing.bg}>
+      <Image
+        source={require("../assets/ares-mecha.jpg")}
+        contentFit="cover"
+        style={landing.bgImage}
+      />
+      <View style={landing.scrim} />
+      <SafeAreaView style={landing.safeOverlay}>
+        <ScrollView
+          contentContainerStyle={landing.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Title */}
+          <Animated.View style={[landing.titleBlock, { opacity: heroOp, transform: [{ translateY: heroY }] }]}>
+            <Text style={landing.titleLine1}>PROOF OF</Text>
+            <Text style={landing.titleLine2}>BATTLE</Text>
+            <Text style={landing.tagline}>Robot combat · On-chain truth · AI at the wheel</Text>
+          </Animated.View>
 
-        {/* Robot hero with glow rings */}
-        <Animated.View style={[styles.heroWrap, { opacity: heroOp, transform: [{ translateY: heroY }] }]}>
-          <GlowRing size={200} color={C.purple} delay={0}   />
-          <GlowRing size={260} color={C.teal}   delay={400} />
-          <GlowRing size={320} color={C.green}  delay={800} />
-          <RobotFace size={120} primaryColor={C.purple} accentColor={C.green} animated />
-        </Animated.View>
+          {/* Feature pills */}
+          <Animated.View style={[landing.features, { opacity: heroOp }]}>
+            {FEATURES.map((f) => (
+              <View key={f.label} style={[landing.pill, { borderColor: f.color + "55" }]}>
+                <Text style={landing.pillIcon}>{f.icon}</Text>
+                <Text style={[landing.pillLabel, { color: f.color }]}>{f.label}</Text>
+              </View>
+            ))}
+          </Animated.View>
 
-        {/* Title */}
-        <Animated.View style={[styles.titleBlock, { opacity: heroOp, transform: [{ translateY: heroY }] }]}>
-          <Text style={styles.title}>PROOF{"\n"}OF BATTLE</Text>
-          <Text style={styles.tagline}>Robot combat · On-chain truth · AI at the wheel</Text>
-        </Animated.View>
+          {/* Terminal boot log */}
+          <Animated.View style={[landing.terminal, { opacity: heroOp }]}>
+            {BOOT_LINES.map((l) => (
+              <BootLine key={l.text} {...l} />
+            ))}
+          </Animated.View>
 
-        {/* Feature pills */}
-        <View style={styles.features}>
-          {FEATURES.map((f) => (
-            <View key={f.label} style={[styles.pill, { borderColor: f.color + "55" }]}>
-              <Text style={styles.pillIcon}>{f.icon}</Text>
-              <Text style={[styles.pillLabel, { color: f.color }]}>{f.label}</Text>
-            </View>
-          ))}
-        </View>
+          {/* Spacer pushes CTA down on tall screens, without ever clipping it */}
+          <View style={{ flex: 1, minHeight: 12 }} />
 
-        {/* Terminal boot */}
-        <View style={styles.terminal}>
-          {BOOT_LINES.map((l) => (
-            <BootLine key={l.text} {...l} />
-          ))}
-        </View>
+          {/* CTA */}
+          <Animated.View style={{ transform: [{ scale: btnScale }], width: "100%" }}>
+            <TouchableOpacity
+              style={[landing.enterBtn, !ready && landing.enterBtnDim]}
+              onPress={handleEnter}
+              disabled={!ready}
+              activeOpacity={0.85}
+            >
+              <Text style={landing.enterBtnText}>
+                {ready ? "ENTER ARENA →" : "LOADING…"}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-        {/* CTA */}
-        <Animated.View style={{ transform: [{ scale: btnScale }], width: "100%" }}>
-          <TouchableOpacity
-            style={[styles.enterBtn, !ready && styles.enterBtnDim]}
-            onPress={handleEnter}
-            disabled={!ready}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.enterBtnText}>
-              {ready ? "ENTER ARENA →" : "INITIALIZING…"}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Network badge */}
-        <View style={styles.netRow}>
-          <View style={styles.netDot} />
-          <Text style={styles.netLabel}>SOLANA DEVNET</Text>
-        </View>
-
-      </View>
-    </SafeAreaView>
+          {/* Network badge */}
+          <View style={landing.netRow}>
+            <View style={landing.netDot} />
+            <Text style={landing.netLabel}>SOLANA DEVNET</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: C.bg },
-  container: {
+// ── Boot screen styles ────────────────────────────────────────────────────────
+
+const boot = StyleSheet.create({
+  wrap: {
     flex: 1,
-    alignItems:     "center",
+    alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
-    gap: 24,
+    gap: 20,
   },
+  tether: { width: 1, height: 40, backgroundColor: C.purple + "b0" },
+  mark: {
+    fontFamily: MONO, color: C.purple, fontSize: 22, fontWeight: "900",
+    marginTop: -8,
+    textShadowColor: C.purple, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 },
+  },
+  title: {
+    fontFamily: SANS_900, color: C.purple, fontSize: 30, textAlign: "center",
+    letterSpacing: 1, lineHeight: 34, textTransform: "uppercase",
+    textShadowColor: C.purple, textShadowRadius: 18, textShadowOffset: { width: 0, height: 0 },
+  },
+  blocksRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 4, maxWidth: 280 },
+  block: {
+    width: 16, height: 16, borderWidth: 1, borderColor: C.purple,
+  },
+  blockFilled: {
+    backgroundColor: C.purple,
+    shadowColor: C.purple, shadowOpacity: 0.7, shadowRadius: 6, elevation: 4,
+  },
+  pct: { fontFamily: MONO, color: C.purple, fontSize: 12, letterSpacing: 1 },
+  caption: { fontFamily: MONO, color: C.purple + "cc", fontSize: 10, letterSpacing: 3, position: "absolute", bottom: 24 },
+});
 
-  // Hero
-  heroWrap: {
-    width: 320, height: 320,
-    alignItems: "center", justifyContent: "center",
+// ── Landing hero styles ───────────────────────────────────────────────────────
+
+const landing = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
+  bg:   { flex: 1, overflow: "hidden", position: "relative" },
+  bgImage: { flex: 1, width: "100%", height: "100%" },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(4,6,15,0.42)" },
+  safeOverlay: { ...StyleSheet.absoluteFillObject, flex: 1 },
+
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 20,
+    gap: 20,
   },
 
   // Title
   titleBlock: { alignItems: "center", gap: 10 },
-  title: {
-    color:      C.textPrimary,
-    fontSize:   44,
-    fontFamily: SANS_900,
-    textAlign:  "center",
-    letterSpacing: 10,
-    lineHeight:    50,
+  titleLine1: {
+    color: C.textPrimary, fontSize: 40, fontFamily: SANS_900,
+    textAlign: "center", letterSpacing: 4, lineHeight: 44, textTransform: "uppercase",
+  },
+  titleLine2: {
+    color: C.purple, fontSize: 46, fontFamily: SANS_900,
+    textAlign: "center", letterSpacing: 4, lineHeight: 50, textTransform: "uppercase",
+    textShadowColor: C.purple + "80", textShadowRadius: 20, textShadowOffset: { width: 0, height: 0 },
   },
   tagline: {
-    fontFamily: MONO,
-    color:      C.textSecondary,
-    fontSize:   11,
-    letterSpacing: 1,
-    textAlign:  "center",
+    fontFamily: MONO, color: C.textSecondary, fontSize: 11,
+    letterSpacing: 1, textAlign: "center", marginTop: 4,
   },
 
   // Features
   features: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   pill: {
-    flexDirection: "row",
-    alignItems:    "center",
-    gap:           6,
-    borderWidth:   1,
-    borderRadius:  20,
-    paddingVertical:   5,
-    paddingHorizontal: 12,
-    backgroundColor:   C.bgCard,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderWidth: 1, borderRadius: 20,
+    paddingVertical: 5, paddingHorizontal: 12,
+    backgroundColor: "rgba(11,17,36,0.85)",
   },
   pillIcon:  { fontSize: 12 },
   pillLabel: { fontFamily: MONO, fontSize: 9, fontWeight: "800", letterSpacing: 1 },
 
   // Terminal
   terminal: {
-    width:           "100%",
-    backgroundColor: C.bgCard,
-    borderRadius:    8,
-    borderWidth:     1,
-    borderColor:     C.border,
+    width: "100%",
+    backgroundColor: "rgba(11,17,36,0.85)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
     borderLeftWidth: 2,
     borderLeftColor: C.green,
-    padding:         12,
-    gap:             3,
+    padding: 12,
+    gap: 3,
+    overflow: "hidden",
   },
   bootLine: { fontFamily: MONO, fontSize: 9.5, letterSpacing: 0.3 },
 
   // CTA
   enterBtn: {
     backgroundColor: C.purple,
-    borderRadius:    14,
+    borderRadius: 14,
     paddingVertical: 18,
-    alignItems:      "center",
-    shadowColor:     C.purple,
-    shadowOpacity:   0.5,
-    shadowRadius:    16,
-    elevation:       8,
+    alignItems: "center",
+    shadowColor: C.purple,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 8,
   },
   enterBtnDim: { backgroundColor: C.bgAccent, shadowOpacity: 0 },
   enterBtnText: {
-    color:      "#fff",
-    fontFamily: SANS_900,
-    fontSize:   16,
-    letterSpacing: 4,
+    color: "#fff", fontFamily: SANS_900, fontSize: 16, letterSpacing: 4,
   },
 
   // Network
-  netRow:  { flexDirection: "row", alignItems: "center", gap: 6 },
-  netDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
-  netLabel:{ fontFamily: MONO, color: C.textDim, fontSize: 9, letterSpacing: 3 },
+  netRow:   { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  netDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
+  netLabel: { fontFamily: MONO, color: C.textDim, fontSize: 9, letterSpacing: 3 },
 });

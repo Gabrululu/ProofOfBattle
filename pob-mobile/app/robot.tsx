@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, Href } from "expo-router";
 import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
