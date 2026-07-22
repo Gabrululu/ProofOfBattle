@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ArenaEvent } from "../types";
-
-const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL ?? "ws://localhost:8000";
+import { BRIDGE_WS_URL as BRIDGE_URL } from "../lib/bridge";
 
 export function useArenaSocket(arenaId: number) {
   const wsRef = useRef<WebSocket | null>(null);

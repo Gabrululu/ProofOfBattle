@@ -10,6 +10,7 @@ import { BettingPanel } from "./components/BettingPanel";
 import { useArenaSocket } from "./hooks/useWebSocket";
 import { useRobot } from "./hooks/useRobot";
 import { fetchBattleOnChain, BattleOnChainState } from "./lib/program";
+import { BRIDGE_HTTP_URL as BRIDGE_HTTP } from "./lib/bridge";
 import { MatchState, DamageEvent, SensorUpdate, AppView } from "./types";
 import { RobotRegister } from "./views/RobotRegister";
 import { CreateCompetition } from "./views/CreateCompetition";
@@ -18,11 +19,6 @@ import { Leaderboard } from "./views/Leaderboard";
 import { History } from "./views/History";
 
 const DEFAULT_ARENA_ID = 1;
-
-const BRIDGE_HTTP = (import.meta.env.VITE_BRIDGE_URL ?? "ws://localhost:8000").replace(
-  /^wss?/,
-  (m: string) => (m === "wss" ? "https" : "http")
-);
 
 const DEFAULT_STATE: MatchState = {
   arenaId: DEFAULT_ARENA_ID,

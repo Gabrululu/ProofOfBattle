@@ -2,11 +2,7 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { TeamMember, RobotInfo } from "../types";
-
-const BRIDGE_HTTP = (import.meta.env.VITE_BRIDGE_URL ?? "ws://localhost:8000").replace(
-  /^wss?/,
-  (m: string) => (m === "wss" ? "https" : "http")
-);
+import { BRIDGE_HTTP_URL as BRIDGE_HTTP } from "../lib/bridge";
 
 interface Props {
   onCreated: (battleId: number) => void;
