@@ -1,3 +1,12 @@
+import { Buffer } from "buffer";
+// @coral-xyz/anchor's account resolver (and other Solana libs) call the bare
+// `Buffer` global assuming a Node-like environment. Vite doesn't polyfill
+// Node globals for the browser, so without this, every `Buffer.from(...)`
+// inside Anchor throws ReferenceError — silently swallowed by its own
+// try/catch — leaving PDAs unresolved forever ("Reached maximum depth for
+// account resolution"). Must run before any other module touches Buffer.
+globalThis.Buffer = globalThis.Buffer ?? Buffer;
+
 import React, { useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
