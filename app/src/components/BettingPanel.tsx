@@ -14,11 +14,15 @@ interface Props {
   totalBetsA: number;
   totalBetsB: number;
   isFinished: boolean;
+  // On-chain battle.status: 0=Waiting, 1=Active, 2=Finished, null=account
+  // doesn't exist yet (or hasn't loaded). place_bet only succeeds while
+  // Waiting — surface that instead of leaving bet buttons live and doomed.
+  chainStatus: number | null;
   nameA?: string;
   nameB?: string;
 }
 
-export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, nameA = "UNIT A", nameB = "UNIT B" }: Props) {
+export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, chainStatus, nameA = "UNIT A", nameB = "UNIT B" }: Props) {
   const { publicKey, connected, signTransaction } = useWallet();
   const { connection } = useConnection();
   const { setVisible } = useWalletModal();
@@ -26,6 +30,8 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
   const [loading, setLoading] = useState<"a" | "b" | "claim" | null>(null);
   const [lastTx, setLastTx] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const canBet = chainStatus === 0;
 
   const totalPool = (totalBetsA + totalBetsB) / LAMPORTS;
   const pctA = totalBetsA + totalBetsB > 0
@@ -107,22 +113,30 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
 
       {/* Bet buttons */}
       {!isFinished ? (
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => bet(0)}
-            disabled={loading !== null}
-            className="py-2.5 rounded border border-secondary/60 bg-secondary/10 text-secondary hover:bg-secondary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
-          >
-            {loading === "a" ? "◌ SENDING…" : `▲ ${nameA}`}
-          </button>
-          <button
-            onClick={() => bet(1)}
-            disabled={loading !== null}
-            className="py-2.5 rounded border border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
-          >
-            {loading === "b" ? "◌ SENDING…" : `▲ ${nameB}`}
-          </button>
-        </div>
+        canBet ? (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => bet(0)}
+              disabled={loading !== null}
+              className="py-2.5 rounded border border-secondary/60 bg-secondary/10 text-secondary hover:bg-secondary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
+            >
+              {loading === "a" ? "◌ SENDING…" : `▲ ${nameA}`}
+            </button>
+            <button
+              onClick={() => bet(1)}
+              disabled={loading !== null}
+              className="py-2.5 rounded border border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-wait transition-colors text-[10px] font-black tracking-widest uppercase"
+            >
+              {loading === "b" ? "◌ SENDING…" : `▲ ${nameB}`}
+            </button>
+          </div>
+        ) : (
+          <p className="text-[9px] font-mono text-yellow-600 text-center py-2">
+            {chainStatus === null
+              ? "⚠ Esta arena todavía no tiene una batalla creada on-chain — no se puede apostar."
+              : "⚠ La batalla ya está en curso — las apuestas están cerradas."}
+          </p>
+        )
       ) : (
         <button
           onClick={claim}

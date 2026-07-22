@@ -168,6 +168,33 @@ async def create_competition_meta(req: CompetitionRequest):
         "robot_b_speed": req.robot_b_speed,
     }
     log.info("Competition registered: %s (id=%d)", req.name, req.battle_id)
+
+    # Create the on-chain battle now, in "Waiting" status, so bettors have an
+    # actual window to place_bet() before /start later flips it to Active.
+    # (place_bet requires battle.status == Waiting; previously this only
+    # happened inside /start, atomically followed by start_battle, so the
+    # account never spent a moment in a bettable state.)
+    chain: dict = {}
+    try:
+        chain["tx_robot_a"] = await solana.register_robot(
+            req.robot_a_name, req.robot_a_attack, req.robot_a_defense, req.robot_a_speed
+        )
+    except Exception as e:
+        chain["tx_robot_a"] = f"skip:{str(e)[:40]}"
+    try:
+        chain["tx_robot_b"] = await solana.register_robot(
+            req.robot_b_name, req.robot_b_attack, req.robot_b_defense, req.robot_b_speed
+        )
+    except Exception as e:
+        chain["tx_robot_b"] = f"skip:{str(e)[:40]}"
+    try:
+        chain["tx_battle"] = await solana.create_battle(
+            req.battle_id, 0, req.robot_a_name, req.robot_b_name
+        )
+    except Exception as e:
+        chain["tx_battle"] = f"skip:{str(e)[:40]}"
+
+    competitions[req.battle_id]["on_chain"] = chain
     return competitions[req.battle_id]
 
 
@@ -242,7 +269,13 @@ async def start_competition_flow(
     battle_id: int,
     creator: str = Query(default=""),
 ):
-    """One-click: register robots on-chain, create battle, transition Waiting→Active."""
+    """Transition Waiting→Active, closing the betting window and starting combat.
+
+    Robot registration and battle creation now happen at competition-creation
+    time (see /api/competition) so the battle spends real time in "Waiting"
+    status where place_bet() can succeed — previously this endpoint created
+    *and* started the battle in one shot, so it was never actually bettable.
+    """
     comp = competitions.get(battle_id)
     if not comp:
         raise HTTPException(status_code=404, detail="Competition not found")
@@ -250,38 +283,6 @@ async def start_competition_flow(
         raise HTTPException(status_code=403, detail="Only the creator can start this battle")
 
     results: dict = {}
-
-    # Register robot A (safe to re-call if already exists in mock mode)
-    try:
-        results["tx_robot_a"] = await solana.register_robot(
-            comp["robot_a_name"],
-            comp["robot_a_attack"],
-            comp["robot_a_defense"],
-            comp["robot_a_speed"],
-        )
-    except Exception as e:
-        results["tx_robot_a"] = f"skip:{str(e)[:40]}"
-
-    # Register robot B
-    try:
-        results["tx_robot_b"] = await solana.register_robot(
-            comp["robot_b_name"],
-            comp["robot_b_attack"],
-            comp["robot_b_defense"],
-            comp["robot_b_speed"],
-        )
-    except Exception as e:
-        results["tx_robot_b"] = f"skip:{str(e)[:40]}"
-
-    # Create battle account
-    try:
-        results["tx_battle"] = await solana.create_battle(
-            battle_id, 0,
-            comp["robot_a_name"],
-            comp["robot_b_name"],
-        )
-    except Exception as e:
-        results["tx_battle"] = f"skip:{str(e)[:40]}"
 
     # Transition Waiting → Active
     try:

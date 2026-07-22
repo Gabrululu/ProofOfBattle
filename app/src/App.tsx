@@ -374,7 +374,7 @@ function ArenaContent({
 
         {/* RIGHT — betting, commentary, voice control, tx log */}
         <div className="flex flex-col gap-4">
-          <BettingPanel arenaId={arenaId} totalBetsA={bets.a} totalBetsB={bets.b} isFinished={isFinished} nameA={nameA} nameB={nameB} />
+          <BettingPanel arenaId={arenaId} totalBetsA={bets.a} totalBetsB={bets.b} isFinished={isFinished} chainStatus={chainBattle?.status ?? null} nameA={nameA} nameB={nameB} />
           <Commentary lines={commentary} audioBase64={lastAudio} />
           {(isCommanderA || isCommanderB) ? (
             <div className={`grid ${isCommanderA && isCommanderB ? "grid-cols-2" : "grid-cols-1"} gap-2`}>
