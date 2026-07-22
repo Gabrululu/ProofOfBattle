@@ -43,6 +43,7 @@ on-chain/solana.tar.bz2
 !app.json
 !babel.config.json
 !eas.json
+!vercel.json
 
 # ── Webots ────────────────────────────────────────────────────────────────────
 simulation/worlds/.*.wbt
