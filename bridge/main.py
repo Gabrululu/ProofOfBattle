@@ -81,7 +81,17 @@ class CompetitionRequest(BaseModel):
     is_team: bool = False
     team_name: str | None = None
     members: list[TeamMemberModel] = []
-    # Robot combatants
+    # "online" = Webots + AI agent decide combat (default); "physical" = real
+    # robots refereed by the creator, with an optional live stream to watch.
+    mode: str = "online"
+    stream_url: str = ""
+    # The creator signs create_battle directly from the frontend (required so
+    # the on-chain robot_a.owner == creator constraint holds for their real,
+    # already-registered robot) — this is that transaction's signature, kept
+    # here only for display/bookkeeping.
+    on_chain_tx: str = ""
+    # Robot combatants (display metadata only — the on-chain Battle account
+    # is the source of truth for which robots are actually fighting)
     robot_a_name: str = "UNIT_ALPHA"
     robot_a_attack: int = 70
     robot_a_defense: int = 60
@@ -90,6 +100,18 @@ class CompetitionRequest(BaseModel):
     robot_b_attack: int = 70
     robot_b_defense: int = 60
     robot_b_speed: int = 65
+
+
+class ReportDamageRequest(BaseModel):
+    creator: str = ""
+    side: int  # 0 = robot_a, 1 = robot_b (the side that GOT hit)
+    damage: int
+    description: str = ""
+
+
+class ResolveBattleRequest(BaseModel):
+    creator: str = ""
+    winner: int  # 0 = robot_a, 1 = robot_b
 
 
 class RobotProfileRequest(BaseModel):
@@ -147,6 +169,11 @@ async def admin_start_battle(battle_id: int):
 
 @app.post("/api/competition")
 async def create_competition_meta(req: CompetitionRequest):
+    """Pure off-chain metadata. The on-chain `create_battle` call now happens
+    client-side (the creator's own wallet signs it, required so the program's
+    `robot_a.owner == creator.key()` constraint holds for their real,
+    already-registered robot) — the frontend calls this endpoint only *after*
+    that transaction confirms, passing its signature for display."""
     competitions[req.battle_id] = {
         "battle_id": req.battle_id,
         "name": req.name,
@@ -157,6 +184,9 @@ async def create_competition_meta(req: CompetitionRequest):
         "members": [m.model_dump() for m in req.members],
         "status": "waiting",
         "viewer_count": 0,
+        "mode": req.mode,
+        "stream_url": req.stream_url,
+        "on_chain_tx": req.on_chain_tx,
         # Robot combatant info
         "robot_a_name": req.robot_a_name,
         "robot_a_attack": req.robot_a_attack,
@@ -167,34 +197,7 @@ async def create_competition_meta(req: CompetitionRequest):
         "robot_b_defense": req.robot_b_defense,
         "robot_b_speed": req.robot_b_speed,
     }
-    log.info("Competition registered: %s (id=%d)", req.name, req.battle_id)
-
-    # Create the on-chain battle now, in "Waiting" status, so bettors have an
-    # actual window to place_bet() before /start later flips it to Active.
-    # (place_bet requires battle.status == Waiting; previously this only
-    # happened inside /start, atomically followed by start_battle, so the
-    # account never spent a moment in a bettable state.)
-    chain: dict = {}
-    try:
-        chain["tx_robot_a"] = await solana.register_robot(
-            req.robot_a_name, req.robot_a_attack, req.robot_a_defense, req.robot_a_speed
-        )
-    except Exception as e:
-        chain["tx_robot_a"] = f"skip:{str(e)[:40]}"
-    try:
-        chain["tx_robot_b"] = await solana.register_robot(
-            req.robot_b_name, req.robot_b_attack, req.robot_b_defense, req.robot_b_speed
-        )
-    except Exception as e:
-        chain["tx_robot_b"] = f"skip:{str(e)[:40]}"
-    try:
-        chain["tx_battle"] = await solana.create_battle(
-            req.battle_id, 0, req.robot_a_name, req.robot_b_name
-        )
-    except Exception as e:
-        chain["tx_battle"] = f"skip:{str(e)[:40]}"
-
-    competitions[req.battle_id]["on_chain"] = chain
+    log.info("Competition registered: %s (id=%d, mode=%s)", req.name, req.battle_id, req.mode)
     return competitions[req.battle_id]
 
 
@@ -208,9 +211,14 @@ async def get_competition_meta(battle_id: int):
     return competitions.get(battle_id, {})
 
 
+def _profile_key(owner: str, name: str) -> str:
+    return f"{owner}:{name}"
+
+
 @app.post("/api/robot-profile")
 async def save_robot_profile(req: RobotProfileRequest):
-    robot_profiles[req.owner] = {
+    key = _profile_key(req.owner, req.name)
+    robot_profiles[key] = {
         "owner": req.owner,
         "name": req.name,
         "attack": req.attack,
@@ -218,12 +226,13 @@ async def save_robot_profile(req: RobotProfileRequest):
         "speed": req.speed,
         "categories": req.categories,
     }
-    return robot_profiles[req.owner]
+    return robot_profiles[key]
 
 
 @app.get("/api/robot-profile/{owner}")
 async def get_robot_profile(owner: str):
-    return robot_profiles.get(owner, {})
+    """Returns ALL robot profiles for this owner (a wallet can register several)."""
+    return [p for p in robot_profiles.values() if p["owner"] == owner]
 
 
 @app.get("/api/robot-profiles")
@@ -271,10 +280,9 @@ async def start_competition_flow(
 ):
     """Transition Waiting→Active, closing the betting window and starting combat.
 
-    Robot registration and battle creation now happen at competition-creation
-    time (see /api/competition) so the battle spends real time in "Waiting"
-    status where place_bet() can succeed — previously this endpoint created
-    *and* started the battle in one shot, so it was never actually bettable.
+    The on-chain battle is created client-side, at competition-creation time
+    (see /api/competition's docstring), so it spends real time in "Waiting"
+    status where place_bet() can succeed before this flips it to Active.
     """
     comp = competitions.get(battle_id)
     if not comp:
@@ -304,6 +312,50 @@ async def start_competition_flow(
     })
 
     return results
+
+
+@app.post("/api/competition/{battle_id}/report")
+async def report_physical_damage(battle_id: int, req: ReportDamageRequest):
+    """Referee input for a 'physical' competition: record a hit and broadcast
+    it over the same arena WebSocket an online (Webots-driven) battle would
+    use. Reuses handle_collision() directly — no Webots involved."""
+    comp = competitions.get(battle_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    if comp.get("mode") != "physical":
+        raise HTTPException(status_code=400, detail="Only physical competitions can report damage manually")
+    if req.creator and comp.get("creator") and comp["creator"] != req.creator:
+        raise HTTPException(status_code=403, detail="Only the creator can referee this battle")
+
+    target = "robot_a" if req.side == 0 else "robot_b"
+    attacker = "robot_b" if req.side == 0 else "robot_a"
+    await handle_collision({
+        "arena_id": battle_id,
+        "attacker": attacker,
+        "target": target,
+        "damage": req.damage,
+        "description": req.description or "Referee-reported hit",
+    })
+    return {"success": True}
+
+
+@app.post("/api/competition/{battle_id}/resolve")
+async def resolve_physical_battle(battle_id: int, req: ResolveBattleRequest):
+    """Referee input for a 'physical' competition: declare the winner. Reuses
+    handle_match_over() directly — no Webots involved."""
+    comp = competitions.get(battle_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    if comp.get("mode") != "physical":
+        raise HTTPException(status_code=400, detail="Only physical competitions can be resolved manually")
+    if req.creator and comp.get("creator") and comp["creator"] != req.creator:
+        raise HTTPException(status_code=403, detail="Only the creator can referee this battle")
+
+    await handle_match_over({
+        "arena_id": battle_id,
+        "winner": "robot_a" if req.winner == 0 else "robot_b",
+    })
+    return {"success": True}
 
 
 # ─── WebSocket: Seeker voice commands ────────────────────────────────────────

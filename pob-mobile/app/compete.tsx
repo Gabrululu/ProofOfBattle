@@ -1,12 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter, Href } from "expo-router";
-import { BRIDGE_BASE_URL } from "../lib/constants";
+import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@solana/web3.js";
+import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
+import { BRIDGE_BASE_URL, PROGRAM_ID } from "../lib/constants";
+import {
+  connection, getBattlePDA, getVaultPDA, serializeCreateBattle,
+  confirmWithTimeout, fetchRobotsByOwner, RobotState,
+} from "../lib/program";
 import { useWallet } from "../hooks/useWallet";
+import { useRobots } from "../hooks/useRobot";
 import { WalletButton } from "../components/WalletButton";
 import { toast } from "../components/Toast";
 import { C, MONO, SANS_700, SANS_900 } from "../lib/theme";
@@ -16,16 +23,6 @@ interface Member {
   alias: string;
   share: string;
 }
-
-interface RobotSlot {
-  name: string;
-  attack: number;
-  defense: number;
-  speed: number;
-}
-
-const DEFAULT_A: RobotSlot = { name: "UNIT_ALPHA", attack: 70, defense: 60, speed: 65 };
-const DEFAULT_B: RobotSlot = { name: "UNIT_BETA",  attack: 70, defense: 60, speed: 65 };
 
 // ── Section label ──────────────────────────────────────────────────────────────
 
@@ -75,44 +72,26 @@ function MiniStats({ attack, defense, speed }: { attack: number; defense: number
   );
 }
 
-// ── Robot picker card ──────────────────────────────────────────────────────────
+// ── Robot picker — restricted to REAL on-chain robots ─────────────────────────
 
-function RobotPickerCard({
-  title, accentColor, robot, onChangeName, walletSearch, onWalletSearch,
-  onSearch, searching, searchLabel,
+function RobotPicker({
+  title, accentColor, candidates, selected, onSelect,
+  walletSearch, onWalletSearch, onSearch, searching, emptyHint,
 }: {
   title: string;
   accentColor: string;
-  robot: RobotSlot;
-  onChangeName: (v: string) => void;
+  candidates: RobotState[];
+  selected: RobotState | null;
+  onSelect: (r: RobotState) => void;
   walletSearch?: string;
   onWalletSearch?: (v: string) => void;
   onSearch?: () => void;
   searching?: boolean;
-  searchLabel?: string;
+  emptyHint: string;
 }) {
   return (
     <View style={[sty.robotCard, { borderColor: accentColor + "55" }]}>
-      <View style={sty.robotCardHeader}>
-        <Text style={[sty.robotCardTitle, { color: accentColor }]}>{title}</Text>
-        {robot.name !== DEFAULT_A.name && robot.name !== DEFAULT_B.name ? (
-          <View style={[sty.profileBadge, { borderColor: accentColor + "60" }]}>
-            <Text style={[sty.profileBadgeText, { color: accentColor }]}>● PROFILE</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <TextInput
-        style={sty.input}
-        value={robot.name}
-        onChangeText={onChangeName}
-        placeholder="Robot name"
-        placeholderTextColor={C.textDim}
-        autoCapitalize="characters"
-        maxLength={32}
-      />
-
-      <MiniStats attack={robot.attack} defense={robot.defense} speed={robot.speed} />
+      <Text style={[sty.robotCardTitle, { color: accentColor }]}>{title}</Text>
 
       {onWalletSearch !== undefined && onSearch !== undefined && (
         <View style={sty.searchRow}>
@@ -120,7 +99,7 @@ function RobotPickerCard({
             style={[sty.input, { flex: 1 }]}
             value={walletSearch}
             onChangeText={onWalletSearch}
-            placeholder="Opponent wallet…"
+            placeholder="Opponent wallet address"
             placeholderTextColor={C.textDim}
             autoCapitalize="none"
             autoCorrect={false}
@@ -133,9 +112,33 @@ function RobotPickerCard({
           >
             {searching
               ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={sty.searchBtnText}>{searchLabel ?? "SEARCH"}</Text>
+              : <Text style={sty.searchBtnText}>FIND</Text>
             }
           </TouchableOpacity>
+        </View>
+      )}
+
+      {candidates.length === 0 ? (
+        <Text style={sty.emptyHint}>{emptyHint}</Text>
+      ) : (
+        <View style={{ gap: 8 }}>
+          {candidates.map((r) => (
+            <TouchableOpacity
+              key={r.pda}
+              onPress={() => onSelect(r)}
+              activeOpacity={0.8}
+              style={[
+                sty.robotOption,
+                selected?.pda === r.pda && { borderColor: accentColor, backgroundColor: accentColor + "15" },
+              ]}
+            >
+              <View style={sty.robotOptionHeader}>
+                <Text style={sty.robotOptionName}>{r.name}</Text>
+                {selected?.pda === r.pda && <Text style={{ color: accentColor, fontSize: 11 }}>✓</Text>}
+              </View>
+              <MiniStats attack={r.attack} defense={r.defense} speed={r.speed} />
+            </TouchableOpacity>
+          ))}
         </View>
       )}
     </View>
@@ -221,7 +224,8 @@ function SuccessCard({ battleId, name, onBack }: { battleId: number; name: strin
 
 export default function CompeteScreen() {
   const router = useRouter();
-  const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
+  const { publicKey, connect, disconnect, connecting, isWebPreview, authorizeSession } = useWallet();
+  const { robots: myRobots } = useRobots(publicKey);
 
   const [name, setName]         = useState("");
   const [location, setLocation] = useState("");
@@ -233,54 +237,32 @@ export default function CompeteScreen() {
   const [loading, setLoading]   = useState(false);
   const [created, setCreated]   = useState<{ id: number; name: string } | null>(null);
 
-  // Robot slots
-  const [robotA, setRobotA] = useState<RobotSlot>(DEFAULT_A);
-  const [robotB, setRobotB] = useState<RobotSlot>(DEFAULT_B);
-  const [robotBWallet, setRobotBWallet] = useState("");
-  const [searchingB, setSearchingB]     = useState(false);
+  // Online (Webots + AI agent) vs Physical (real robots, human referee, live stream)
+  const [mode, setMode] = useState<"online" | "physical">("online");
+  const [streamUrl, setStreamUrl] = useState("");
 
-  // Auto-fetch creator's robot profile
-  useEffect(() => {
-    if (!publicKey) return;
-    fetch(`${BRIDGE_BASE_URL}/api/robot-profile/${publicKey.toBase58()}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.name) {
-          setRobotA({
-            name:    data.name,
-            attack:  data.attack  ?? 70,
-            defense: data.defense ?? 60,
-            speed:   data.speed   ?? 65,
-          });
-        }
-      })
-      .catch(() => {});
-  }, [publicKey]);
+  // Robot A — one of the creator's own registered robots
+  const [robotA, setRobotA] = useState<RobotState | null>(null);
+
+  // Robot B — search any wallet's registered robots (can be the creator's own again)
+  const [robotBWallet, setRobotBWallet] = useState("");
+  const [robotBCandidates, setRobotBCandidates] = useState<RobotState[]>([]);
+  const [robotB, setRobotB] = useState<RobotState | null>(null);
+  const [searchingB, setSearchingB] = useState(false);
 
   const searchRobotB = async () => {
     const w = robotBWallet.trim();
     if (!w) return;
     setSearchingB(true);
+    setRobotB(null);
     try {
-      const resp = await fetch(`${BRIDGE_BASE_URL}/api/robot-profile/${w}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data?.name) {
-          setRobotB({
-            name:    data.name,
-            attack:  data.attack  ?? 70,
-            defense: data.defense ?? 60,
-            speed:   data.speed   ?? 65,
-          });
-          toast.success("Robot found", data.name);
-        } else {
-          toast.error("Not found", "No robot registered for that wallet.");
-        }
-      } else {
-        toast.error("Not found", "No robot registered for that wallet.");
-      }
+      const owner = new PublicKey(w);
+      const found = await fetchRobotsByOwner(owner);
+      setRobotBCandidates(found);
+      if (found.length === 0) toast.error("Not found", "That wallet has no registered robots.");
     } catch {
-      toast.error("Error", "Bridge unreachable.");
+      toast.error("Invalid wallet", "Check the address and try again.");
+      setRobotBCandidates([]);
     } finally {
       setSearchingB(false);
     }
@@ -304,19 +286,17 @@ export default function CompeteScreen() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      toast.error("Required", "Enter a competition name.");
-      return;
-    }
-    if (!location.trim()) {
-      toast.error("Required", "Enter a location / venue.");
-      return;
-    }
+    if (!name.trim()) { toast.error("Required", "Enter a competition name."); return; }
+    if (!location.trim()) { toast.error("Required", "Enter a location / venue."); return; }
+    if (!publicKey) { toast.error("Wallet required", "Connect your wallet first."); return; }
+    if (!robotA) { toast.error("Robot required", "Pick one of your registered robots for side A."); return; }
+    if (!robotB) { toast.error("Opponent required", "Search and pick an opponent robot for side B."); return; }
     if (isTeam && totalShare !== 100) {
-      toast.error(
-        "Share mismatch",
-        `Profit shares must add up to 100% (currently ${totalShare}%).`
-      );
+      toast.error("Share mismatch", `Profit shares must add up to 100% (currently ${totalShare}%).`);
+      return;
+    }
+    if (mode === "physical" && !streamUrl.trim()) {
+      toast.error("Stream required", "Paste the live stream link (YouTube Live, Twitch, etc).");
       return;
     }
 
@@ -324,43 +304,65 @@ export default function CompeteScreen() {
     setLoading(true);
 
     try {
-      const resp = await fetch(`${BRIDGE_BASE_URL}/api/competition`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          battle_id: battleId,
-          name: name.trim(),
-          location: location.trim(),
-          creator: publicKey?.toBase58() ?? "",
-          is_team: isTeam,
-          team_name: isTeam && teamName.trim() ? teamName.trim() : null,
-          members: isTeam
-            ? members
-                .filter((m) => m.alias || m.wallet)
-                .map((m) => ({
-                  wallet: m.wallet,
-                  alias: m.alias,
-                  share: parseInt(m.share) || 0,
-                }))
-            : [],
-          robot_a_name:    robotA.name,
-          robot_a_attack:  robotA.attack,
-          robot_a_defense: robotA.defense,
-          robot_a_speed:   robotA.speed,
-          robot_b_name:    robotB.name,
-          robot_b_attack:  robotB.attack,
-          robot_b_defense: robotB.defense,
-          robot_b_speed:   robotB.speed,
-        }),
-      });
+      const [battlePDA] = getBattlePDA(battleId);
+      const [vaultPDA] = getVaultPDA(battleId);
+      const data = serializeCreateBattle(battleId, 0);
+      const robotAPda = new PublicKey(robotA.pda);
+      const robotBPda = new PublicKey(robotB.pda);
 
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      setCreated({ id: battleId, name: name.trim() });
+      await transact(async (wallet: Parameters<Parameters<typeof transact>[0]>[0]) => {
+        await authorizeSession(wallet);
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
+        tx.add(new TransactionInstruction({
+          programId: PROGRAM_ID,
+          keys: [
+            { pubkey: battlePDA,                isSigner: false, isWritable: true  },
+            { pubkey: vaultPDA,                 isSigner: false, isWritable: true  },
+            { pubkey: robotAPda,                isSigner: false, isWritable: false },
+            { pubkey: robotBPda,                isSigner: false, isWritable: false },
+            { pubkey: publicKey,                isSigner: true,  isWritable: true  },
+            { pubkey: SystemProgram.programId,  isSigner: false, isWritable: false },
+          ],
+          data,
+        }));
+        const [signed] = await wallet.signTransactions({ transactions: [tx] });
+        const sig = await connection.sendRawTransaction(signed.serialize());
+        await confirmWithTimeout(sig, blockhash, lastValidBlockHeight);
+
+        const resp = await fetch(`${BRIDGE_BASE_URL}/api/competition`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            battle_id: battleId,
+            name: name.trim(),
+            location: location.trim(),
+            creator: publicKey.toBase58(),
+            is_team: isTeam,
+            team_name: isTeam && teamName.trim() ? teamName.trim() : null,
+            members: isTeam
+              ? members
+                  .filter((m) => m.alias || m.wallet)
+                  .map((m) => ({ wallet: m.wallet, alias: m.alias, share: parseInt(m.share) || 0 }))
+              : [],
+            mode,
+            stream_url: mode === "physical" ? streamUrl.trim() : "",
+            on_chain_tx: sig,
+            robot_a_name:    robotA.name,
+            robot_a_attack:  robotA.attack,
+            robot_a_defense: robotA.defense,
+            robot_a_speed:   robotA.speed,
+            robot_b_name:    robotB.name,
+            robot_b_attack:  robotB.attack,
+            robot_b_defense: robotB.defense,
+            robot_b_speed:   robotB.speed,
+          }),
+        });
+        if (!resp.ok) throw new Error(`Battle created on-chain (${sig.slice(0, 12)}…) but bridge responded ${resp.status}`);
+        setCreated({ id: battleId, name: name.trim() });
+      });
     } catch (e: unknown) {
-      toast.error(
-        "Failed to create",
-        e instanceof Error ? e.message : "Check bridge connection."
-      );
+      toast.error("Failed to create", e instanceof Error ? e.message : "Check bridge connection.");
     } finally {
       setLoading(false);
     }
@@ -413,25 +415,57 @@ export default function CompeteScreen() {
           placeholder="e.g. UNI, Lima, Peru"
         />
 
+        <SectionLabel label="MODE" />
+
+        <View style={sty.modeRow}>
+          <TouchableOpacity
+            style={[sty.modeBtn, mode === "online" && sty.modeBtnActive]}
+            onPress={() => setMode("online")}
+            activeOpacity={0.8}
+          >
+            <Text style={[sty.modeBtnText, mode === "online" && sty.modeBtnTextActive]}>⚡ ONLINE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[sty.modeBtn, mode === "physical" && sty.modeBtnActive]}
+            onPress={() => setMode("physical")}
+            activeOpacity={0.8}
+          >
+            <Text style={[sty.modeBtnText, mode === "physical" && sty.modeBtnTextActive]}>🤖 PHYSICAL</Text>
+          </TouchableOpacity>
+        </View>
+
+        {mode === "physical" && (
+          <Field
+            label="LIVE STREAM LINK"
+            value={streamUrl}
+            onChange={setStreamUrl}
+            placeholder="https://youtube.com/watch?v=..."
+            hint="You'll referee the fight — report hits and declare the winner from the battle screen."
+          />
+        )}
+
         <SectionLabel label="COMBATANTS" />
 
-        <RobotPickerCard
+        <RobotPicker
           title="ROBOT A · YOUR FIGHTER"
           accentColor={C.purple}
-          robot={robotA}
-          onChangeName={(v) => setRobotA((r) => ({ ...r, name: v }))}
+          candidates={myRobots}
+          selected={robotA}
+          onSelect={setRobotA}
+          emptyHint={myRobots.length === 0 ? "You have no registered robots yet — register one first." : ""}
         />
 
-        <RobotPickerCard
+        <RobotPicker
           title="ROBOT B · OPPONENT"
           accentColor={C.teal}
-          robot={robotB}
-          onChangeName={(v) => setRobotB((r) => ({ ...r, name: v }))}
+          candidates={robotBCandidates}
+          selected={robotB}
+          onSelect={setRobotB}
           walletSearch={robotBWallet}
           onWalletSearch={setRobotBWallet}
           onSearch={searchRobotB}
           searching={searchingB}
-          searchLabel="FIND"
+          emptyHint="Search a wallet address to see its robots."
         />
 
         <SectionLabel label="FORMAT" />
@@ -533,18 +567,29 @@ const sty = StyleSheet.create({
     fontFamily: MONO, fontSize: 13, letterSpacing: 1,
   },
 
+  // Mode toggle
+  modeRow: { flexDirection: "row", gap: 8 },
+  modeBtn: {
+    flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    paddingVertical: 12, alignItems: "center", backgroundColor: C.bgCard,
+  },
+  modeBtnActive: { borderColor: C.purple, backgroundColor: C.purple + "22" },
+  modeBtnText: { fontFamily: MONO, color: C.textDim, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+  modeBtnTextActive: { color: C.purple },
+
   // Robot picker
   robotCard: {
     backgroundColor: C.bgCard, borderRadius: 12,
     borderWidth: 1, padding: 14, gap: 10,
   },
-  robotCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   robotCardTitle:  { fontFamily: MONO, fontSize: 9, fontWeight: "900", letterSpacing: 3 },
-  profileBadge: {
-    borderWidth: 1, borderRadius: 10,
-    paddingVertical: 3, paddingHorizontal: 8,
+  emptyHint: { fontFamily: MONO, color: C.textDim, fontSize: 10, paddingVertical: 6 },
+  robotOption: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 10,
+    padding: 10, gap: 6, backgroundColor: C.bg,
   },
-  profileBadgeText: { fontFamily: MONO, fontSize: 8, fontWeight: "900", letterSpacing: 1 },
+  robotOptionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  robotOptionName: { fontFamily: MONO, color: C.textPrimary, fontSize: 11, fontWeight: "800" },
   miniStats: { flexDirection: "row", alignItems: "center", gap: 6 },
   miniStat:  { fontFamily: MONO, fontSize: 10, fontWeight: "700" },
   miniDot:   { color: C.border, fontSize: 12 },

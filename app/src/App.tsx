@@ -7,6 +7,8 @@ import { VoiceControl } from "./components/VoiceControl";
 import { Arena }        from "./components/Arena";
 import { WalletButton } from "./components/WalletButton";
 import { BettingPanel } from "./components/BettingPanel";
+import { LiveStream }   from "./components/LiveStream";
+import { RefereePanel } from "./components/RefereePanel";
 import { useArenaSocket } from "./hooks/useWebSocket";
 import { useRobot } from "./hooks/useRobot";
 import { fetchBattleOnChain, BattleOnChainState } from "./lib/program";
@@ -162,15 +164,19 @@ function ArenaContent({
   const [profileB, setProfileB]         = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
   const [shareCopied, setShareCopied]   = useState(false);
   const [chainBattle, setChainBattle]   = useState<BattleOnChainState | null>(null);
+  const [compMode, setCompMode]         = useState<"online" | "physical">("online");
+  const [streamUrl, setStreamUrl]       = useState("");
+  const [compCreator, setCompCreator]   = useState("");
 
   const { publicKey } = useWallet();
   const { connection } = useConnection();
-  const { robot: myRobot } = useRobot(publicKey);
+  const { robots: myRobots } = useRobot(publicKey);
 
-  // Which side (if any) the connected wallet is the registered owner of —
-  // drives whether this client sees voice commands (competitor) or just betting (spectator).
-  const isCommanderA = !!myRobot && !!chainBattle && myRobot.pda === chainBattle.robotA;
-  const isCommanderB = !!myRobot && !!chainBattle && myRobot.pda === chainBattle.robotB;
+  // Which side (if any) the connected wallet owns — checked across ALL of the
+  // wallet's registered robots, since one wallet can own several — drives
+  // whether this client sees voice commands (competitor) or just betting (spectator).
+  const isCommanderA = !!chainBattle && myRobots.some((r) => r.pda === chainBattle.robotA);
+  const isCommanderB = !!chainBattle && myRobots.some((r) => r.pda === chainBattle.robotB);
   const isSpectator  = !!publicKey && !isCommanderA && !isCommanderB;
 
   useEffect(() => {
@@ -203,6 +209,10 @@ function ArenaContent({
     let rNameA = "UNIT ALPHA";
     let rNameB = "UNIT BETA";
 
+    setCompMode("online");
+    setStreamUrl("");
+    setCompCreator("");
+
     fetch(`${BRIDGE_HTTP}/api/competition/${arenaId}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
@@ -211,6 +221,9 @@ function ArenaContent({
         if (data.robot_b_name) { setNameB(data.robot_b_name); rNameB = data.robot_b_name; }
         if (data.robot_a_attack != null) setStatsA({ atk: data.robot_a_attack, def: data.robot_a_defense, spd: data.robot_a_speed });
         if (data.robot_b_attack != null) setStatsB({ atk: data.robot_b_attack, def: data.robot_b_defense, spd: data.robot_b_speed });
+        if (data.mode === "physical") setCompMode("physical");
+        if (data.stream_url) setStreamUrl(data.stream_url);
+        if (data.creator) setCompCreator(data.creator);
         // Fetch W/L + categories from leaderboard
         return fetch(`${BRIDGE_HTTP}/api/leaderboard`);
       })
@@ -366,15 +379,21 @@ function ArenaContent({
 
           <div className="bg-surface border border-border rounded-lg p-2">
             <p className="text-[8px] tracking-[0.3em] text-muted uppercase px-1 pb-1">
-              Top-down view · Real-time
+              {compMode === "physical" ? "Transmisión en vivo" : "Top-down view · Real-time"}
             </p>
-            <Arena posA={posA} posB={posB} hpA={match.hpA} hpB={match.hpB} />
+            {compMode === "physical"
+              ? <LiveStream url={streamUrl} />
+              : <Arena posA={posA} posB={posB} hpA={match.hpA} hpB={match.hpB} />
+            }
           </div>
         </div>
 
         {/* RIGHT — betting, commentary, voice control, tx log */}
         <div className="flex flex-col gap-4">
           <BettingPanel arenaId={arenaId} totalBetsA={bets.a} totalBetsB={bets.b} isFinished={isFinished} chainStatus={chainBattle?.status ?? null} nameA={nameA} nameB={nameB} />
+          {compMode === "physical" && publicKey?.toBase58() === compCreator && (
+            <RefereePanel battleId={arenaId} creator={compCreator} nameA={nameA} nameB={nameB} />
+          )}
           <Commentary lines={commentary} audioBase64={lastAudio} />
           {(isCommanderA || isCommanderB) ? (
             <div className={`grid ${isCommanderA && isCommanderB ? "grid-cols-2" : "grid-cols-1"} gap-2`}>

@@ -3,7 +3,7 @@ import { useLocalSearchParams, Stack } from "expo-router";
 import {
   View, Text, ScrollView, StyleSheet,
   Animated, ActivityIndicator,
-  TouchableOpacity, Share,
+  TouchableOpacity, Share, Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { BattleEvent } from "../../hooks/useBattle";
@@ -16,6 +16,7 @@ import { BetPanel }     from "../../components/BetPanel";
 import { ClaimPanel }   from "../../components/ClaimPanel";
 import { RobotFace }    from "../../components/RobotFace";
 import { CommandPanel } from "../../components/CommandPanel";
+import { RefereePanel } from "../../components/RefereePanel";
 import { BRIDGE_BASE_URL } from "../../lib/constants";
 import { C, MONO, SANS_900 } from "../../lib/theme";
 
@@ -191,7 +192,7 @@ export default function BattleScreen() {
   }, []);
   useEffect(() => { scrollToTop(); }, [battle.events.length]);
   const { publicKey } = useWallet();
-  const { robot } = useRobot(publicKey);
+  const { robots } = useRobot(publicKey);
 
   // Fetch competition metadata for real robot names + stats + profiles
   const [nameA, setNameA] = useState("UNIT-A");
@@ -200,12 +201,18 @@ export default function BattleScreen() {
   const [statsB, setStatsB] = useState<{ atk: number; def: number; spd: number } | null>(null);
   const [profileA, setProfileA] = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
   const [profileB, setProfileB] = useState<{ wins: number; losses: number; categories: string[] } | null>(null);
+  const [compMode, setCompMode] = useState<"online" | "physical">("online");
+  const [streamUrl, setStreamUrl] = useState("");
+  const [compCreator, setCompCreator] = useState("");
 
   useEffect(() => {
     setStatsA(null);
     setStatsB(null);
     setProfileA(null);
     setProfileB(null);
+    setCompMode("online");
+    setStreamUrl("");
+    setCompCreator("");
 
     let rNameA = "UNIT-A";
     let rNameB = "UNIT-B";
@@ -218,6 +225,9 @@ export default function BattleScreen() {
         if (data.robot_b_name) { setNameB(data.robot_b_name); rNameB = data.robot_b_name; }
         if (data.robot_a_attack != null) setStatsA({ atk: data.robot_a_attack, def: data.robot_a_defense, spd: data.robot_a_speed });
         if (data.robot_b_attack != null) setStatsB({ atk: data.robot_b_attack, def: data.robot_b_defense, spd: data.robot_b_speed });
+        if (data.mode === "physical") setCompMode("physical");
+        if (data.stream_url) setStreamUrl(data.stream_url);
+        if (data.creator) setCompCreator(data.creator);
         return fetch(`${BRIDGE_BASE_URL}/api/leaderboard`);
       })
       .then((r) => r?.ok ? r.json() : null)
@@ -231,10 +241,10 @@ export default function BattleScreen() {
       .catch(() => {});
   }, [battleId]);
 
-  // Detect if the connected wallet's robot is in this battle
+  // Detect if any of the connected wallet's robots is in this battle
   const commanderSide: "robot_a" | "robot_b" | null =
-    robot && battle.robotA && robot.pda === battle.robotA ? "robot_a" :
-    robot && battle.robotB && robot.pda === battle.robotB ? "robot_b" :
+    battle.robotA && robots.some((r) => r.pda === battle.robotA) ? "robot_a" :
+    battle.robotB && robots.some((r) => r.pda === battle.robotB) ? "robot_b" :
     null;
   const isCommander = commanderSide !== null && battle.status === 1;
 
@@ -320,6 +330,17 @@ export default function BattleScreen() {
               </View>
             </View>
 
+            {/* ── Live stream (physical mode) ─────────────────────── */}
+            {compMode === "physical" && streamUrl ? (
+              <TouchableOpacity
+                style={styles.streamBtn}
+                onPress={() => Linking.openURL(streamUrl)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.streamBtnText}>▶ VER TRANSMISIÓN EN VIVO</Text>
+              </TouchableOpacity>
+            ) : null}
+
             {/* ── HP bars ────────────────────────────────────────── */}
             <View style={styles.hpSection}>
               <Text style={styles.sysLabel}>INTEGRITY CHECK</Text>
@@ -396,6 +417,16 @@ export default function BattleScreen() {
                 robotId={commanderSide}
                 myHp={commanderSide === "robot_a" ? battle.hpA : battle.hpB}
                 enemyHp={commanderSide === "robot_a" ? battle.hpB : battle.hpA}
+              />
+            )}
+
+            {/* ── Referee panel (physical mode, creator only) ─────── */}
+            {compMode === "physical" && publicKey?.toBase58() === compCreator && (
+              <RefereePanel
+                battleId={battleId}
+                creator={compCreator}
+                nameA={nameA}
+                nameB={nameB}
               />
             )}
 
@@ -512,6 +543,11 @@ const styles = StyleSheet.create({
     padding:         20,
   },
   robotCol:  { flex: 1, alignItems: "center" },
+  streamBtn: {
+    backgroundColor: C.purple, borderRadius: 12,
+    paddingVertical: 14, alignItems: "center",
+  },
+  streamBtnText: { fontFamily: SANS_900, color: "#fff", fontSize: 12, letterSpacing: 2 },
   vsDivider: { paddingHorizontal: 8, alignItems: "center", gap: 4 },
   vsDivLine: { width: 1, height: 20, opacity: 0.4 },
   vsBox:     { padding: 4 },

@@ -67,7 +67,7 @@ function PulsingDot({ color }: { color: string }) {
 function MyRobotSection() {
   const router = useRouter();
   const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
-  const { robot, loading } = useRobot(publicKey);
+  const { robot, robots, loading } = useRobot(publicKey);
 
   return (
     <View style={styles.section}>
@@ -112,7 +112,11 @@ function MyRobotSection() {
               <Text style={[styles.recordNum, { color: C.danger }]}>{robot.losses}L</Text>
             </View>
           </View>
-          <Text style={styles.robotCta}>Tap to manage  ·  ENTER a battle below</Text>
+          <Text style={styles.robotCta}>
+            {robots.length > 1
+              ? `Tap to manage  ·  +${robots.length - 1} more robot${robots.length > 2 ? "s" : ""}`
+              : "Tap to manage  ·  ENTER a battle below"}
+          </Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity

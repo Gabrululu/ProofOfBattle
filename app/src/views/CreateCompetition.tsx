@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import type { TeamMember, RobotInfo } from "../types";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+import type { TeamMember } from "../types";
 import { BRIDGE_HTTP_URL as BRIDGE_HTTP } from "../lib/bridge";
+import { confirmWithTimeout, fetchRobotsByOwner, RobotState } from "../lib/program";
+import { useProgram } from "../hooks/useProgram";
+import { useRobots } from "../hooks/useRobot";
 
 interface Props {
   onCreated: (battleId: number) => void;
@@ -14,35 +19,34 @@ function RobotStatRow({ label, value, color }: { label: string; value: number; c
     <div className="flex items-center gap-2">
       <span className="text-[8px] font-mono text-muted w-8">{label}</span>
       <div className="flex-1 h-1 bg-surface rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${value}%`, backgroundColor: color }}
-        />
+        <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
       </div>
       <span className="text-[9px] font-mono w-6 text-right" style={{ color }}>{value}</span>
     </div>
   );
 }
 
-// ── Robot picker card ─────────────────────────────────────────────────────────
-function RobotCard({
+// ── Robot picker card — restricted to REAL on-chain robots ────────────────────
+function RobotPickerCard({
   role,
-  robot,
-  loading,
+  robots,
+  selected,
+  onSelect,
   walletInput,
   onWalletChange,
   onSearch,
-  onStatChange,
-  onNameChange,
+  searching,
+  searchable,
 }: {
   role: "A" | "B";
-  robot: RobotInfo | null;
-  loading: boolean;
-  walletInput: string;
-  onWalletChange: (v: string) => void;
-  onSearch: () => void;
-  onStatChange: (field: keyof RobotInfo, val: number | string) => void;
-  onNameChange: (v: string) => void;
+  robots: RobotState[];
+  selected: RobotState | null;
+  onSelect: (r: RobotState) => void;
+  walletInput?: string;
+  onWalletChange?: (v: string) => void;
+  onSearch?: () => void;
+  searching?: boolean;
+  searchable: boolean;
 }) {
   const isA = role === "A";
   const borderColor = isA ? "border-blue-900/60" : "border-red-900/60";
@@ -59,81 +63,67 @@ function RobotCard({
           {role}
         </span>
         <span className={`text-[9px] font-mono font-bold tracking-widest ${labelColor}`}>
-          {isA ? "YOUR ROBOT" : "OPPONENT"}
+          {isA ? "TU ROBOT" : "OPONENTE"}
         </span>
-        {robot && (
-          <span className="ml-auto text-[8px] text-green-500 font-mono">✓ found</span>
-        )}
       </div>
 
-      {/* Wallet search (only for Robot B or if A has no profile) */}
-      {(!isA || !robot) && (
+      {searchable && (
         <div className="flex gap-2">
           <input
             type="text"
             value={walletInput}
-            onChange={(e) => onWalletChange(e.target.value)}
-            placeholder={isA ? "Your wallet address (optional)" : "Opponent wallet address"}
+            onChange={(e) => onWalletChange?.(e.target.value)}
+            placeholder="Wallet del oponente"
             className="flex-1 bg-background border border-border rounded-lg px-2.5 py-2 text-[9px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary"
           />
           <button
             onClick={onSearch}
-            disabled={loading || !walletInput.trim()}
+            disabled={searching || !walletInput?.trim()}
             className="px-3 py-2 rounded-lg text-[9px] font-mono font-bold border border-primary/60 text-primary bg-primary/30 hover:bg-primary/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "◌" : "SEARCH"}
+            {searching ? "◌" : "BUSCAR"}
           </button>
         </div>
       )}
 
-      {/* Robot name input */}
-      <div className="flex flex-col gap-1">
-        <label className="text-[8px] text-muted font-mono tracking-widest">NAME</label>
-        <input
-          type="text"
-          value={robot?.name ?? ""}
-          onChange={(e) => onNameChange(e.target.value)}
-          maxLength={32}
-          placeholder={isA ? "UNIT-ALPHA" : "UNIT-BETA"}
-          className="bg-background border border-border rounded-lg px-2.5 py-2 text-[10px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-        />
-      </div>
-
-      {/* Stats */}
-      <div className="flex flex-col gap-1.5">
-        {(["attack", "defense", "speed"] as const).map((stat) => {
-          const colors = { attack: "var(--color-primary)", defense: "var(--color-secondary)", speed: "#FBBF24" };
-          const labels = { attack: "ATK", defense: "DEF", speed: "SPD" };
-          return (
-            <div key={stat} className="flex items-center gap-2">
-              <span className="text-[8px] font-mono text-muted w-8">{labels[stat]}</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={robot?.[stat] ?? 70}
-                onChange={(e) => onStatChange(stat, Number(e.target.value))}
-                className="flex-1 h-1 appearance-none bg-surface rounded-full cursor-pointer"
-                style={{ accentColor: colors[stat] }}
-              />
-              <span
-                className="text-[9px] font-mono w-6 text-right tabular-nums"
-                style={{ color: colors[stat] }}
-              >
-                {robot?.[stat] ?? 70}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {robots.length === 0 ? (
+        <p className="text-[9px] font-mono text-muted py-2">
+          {isA ? "No tenés robots registrados todavía." : "Buscá una wallet para ver sus robots."}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {robots.map((r) => (
+            <button
+              key={r.pda}
+              onClick={() => onSelect(r)}
+              className={`text-left rounded-lg border px-3 py-2 transition-colors ${
+                selected?.pda === r.pda ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/40"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black text-foreground">{r.name}</span>
+                {selected?.pda === r.pda && <span className="text-[8px] text-primary font-mono">✓</span>}
+              </div>
+              <div className="flex flex-col gap-1">
+                <RobotStatRow label="ATK" value={r.attack} color={accentColor} />
+                <RobotStatRow label="DEF" value={r.defense} color="var(--color-secondary)" />
+                <RobotStatRow label="SPD" value={r.speed} color="#FBBF24" />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function CreateCompetition({ onCreated }: Props) {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
+  const program = useProgram();
+  const { robots: myRobots } = useRobots(publicKey);
 
   const [name, setName]         = useState("");
   const [location, setLocation] = useState("");
@@ -143,72 +133,40 @@ export function CreateCompetition({ onCreated }: Props) {
     { wallet: "", alias: "", share: 100 },
   ]);
 
-  // Robot A (creator's robot)
-  const [robotA, setRobotA]               = useState<RobotInfo | null>(null);
-  const [robotAWallet, setRobotAWallet]   = useState("");
-  const [loadingA, setLoadingA]           = useState(false);
+  // Online (Webots + AI agent) vs Physical (real robots, human referee, live stream)
+  const [mode, setMode] = useState<"online" | "physical">("online");
+  const [streamUrl, setStreamUrl] = useState("");
 
-  // Robot B (opponent)
-  const [robotB, setRobotB]               = useState<RobotInfo>({ name: "UNIT_BETA", attack: 70, defense: 60, speed: 65 });
-  const [robotBWallet, setRobotBWallet]   = useState("");
-  const [loadingB, setLoadingB]           = useState(false);
+  // Robot A — one of the creator's own registered robots
+  const [robotA, setRobotA] = useState<RobotState | null>(null);
+
+  // Robot B — search any wallet's registered robots (can be the creator's own again)
+  const [robotBWallet, setRobotBWallet] = useState("");
+  const [robotBCandidates, setRobotBCandidates] = useState<RobotState[]>([]);
+  const [robotB, setRobotB] = useState<RobotState | null>(null);
+  const [searchingB, setSearchingB] = useState(false);
 
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [created, setCreated]   = useState<{ id: number; name: string } | null>(null);
 
-  // Auto-fetch creator's robot profile on wallet connect
-  useEffect(() => {
-    if (!publicKey) return;
-    const pubkey = publicKey.toBase58();
-    setLoadingA(true);
-    fetch(`${BRIDGE_HTTP}/api/robot-profile/${pubkey}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.name) {
-          setRobotA({
-            name: data.name,
-            attack: data.attack ?? 70,
-            defense: data.defense ?? 60,
-            speed: data.speed ?? 65,
-            categories: data.categories ?? [],
-          });
-          setRobotAWallet(pubkey);
-        } else {
-          // No profile yet — start with defaults
-          setRobotA({ name: "UNIT_ALPHA", attack: 70, defense: 60, speed: 65 });
-        }
-      })
-      .catch(() => setRobotA({ name: "UNIT_ALPHA", attack: 70, defense: 60, speed: 65 }))
-      .finally(() => setLoadingA(false));
-  }, [publicKey]);
-
-  const searchRobotByWallet = async (wallet: string, side: "a" | "b") => {
-    if (!wallet.trim()) return;
-    if (side === "a") setLoadingA(true);
-    else setLoadingB(true);
+  const searchRobotB = async () => {
+    const wallet = robotBWallet.trim();
+    if (!wallet) return;
+    setSearchingB(true);
+    setRobotB(null);
     try {
-      const r = await fetch(`${BRIDGE_HTTP}/api/robot-profile/${wallet.trim()}`);
-      const data = await r.json();
-      const profile: RobotInfo = data?.name
-        ? { name: data.name, attack: data.attack ?? 70, defense: data.defense ?? 60, speed: data.speed ?? 65, categories: data.categories }
-        : { name: side === "a" ? "UNIT_ALPHA" : "UNIT_BETA", attack: 70, defense: 60, speed: 65 };
-      if (side === "a") setRobotA(profile);
-      else setRobotB(profile);
+      const owner = new PublicKey(wallet);
+      const found = await fetchRobotsByOwner(connection, owner);
+      setRobotBCandidates(found);
+      if (found.length === 0) setError("Esa wallet no tiene robots registrados.");
+      else setError(null);
     } catch {
-      /* keep current */
+      setError("Dirección de wallet inválida.");
+      setRobotBCandidates([]);
     } finally {
-      if (side === "a") setLoadingA(false);
-      else setLoadingB(false);
+      setSearchingB(false);
     }
-  };
-
-  const updateRobotA = (field: keyof RobotInfo, val: number | string) => {
-    setRobotA((prev) => ({ ...(prev ?? { name: "", attack: 70, defense: 60, speed: 65 }), [field]: val }));
-  };
-
-  const updateRobotB = (field: keyof RobotInfo, val: number | string) => {
-    setRobotB((prev) => ({ ...prev, [field]: val }));
   };
 
   const totalShare = members.reduce((s, m) => s + m.share, 0);
@@ -222,15 +180,36 @@ export function CreateCompetition({ onCreated }: Props) {
 
   const handleCreate = async () => {
     if (!connected) { setVisible(true); return; }
+    if (!program || !publicKey || !signTransaction) return;
     if (!name.trim() || !location.trim()) { setError("Nombre y ubicación son requeridos"); return; }
-    if (!robotA?.name.trim()) { setError("Ingresa un nombre para Robot A"); return; }
-    if (!robotB?.name.trim()) { setError("Ingresa un nombre para Robot B"); return; }
+    if (!robotA) { setError("Elegí uno de tus robots para el lado A"); return; }
+    if (!robotB) { setError("Buscá y elegí un robot oponente para el lado B"); return; }
     if (isTeam && totalShare !== 100) { setError(`El reparto debe sumar 100% (actualmente ${totalShare}%)`); return; }
+    if (mode === "physical" && !streamUrl.trim()) { setError("Pegá el link de la transmisión en vivo"); return; }
 
     const battleId = Date.now() % 10_000_000;
     setLoading(true);
     setError(null);
     try {
+      // 1. Create the battle on-chain, signed by the creator's own wallet —
+      // required so the program's `robot_a.owner == creator.key()` constraint
+      // holds for robotA (their real, already-registered robot).
+      const ix = await program.methods
+        .createBattle(new BN(battleId), new BN(0))
+        .accounts({
+          robotA: new PublicKey(robotA.pda),
+          robotB: new PublicKey(robotB.pda),
+          creator: publicKey,
+        })
+        .instruction();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey }).add(ix);
+      const signed = await signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signed.serialize());
+      await confirmWithTimeout(connection, sig, blockhash, lastValidBlockHeight);
+
+      // 2. Only after the on-chain battle is confirmed, record the off-chain
+      // metadata (display name/stats, mode, stream url) with the bridge.
       const resp = await fetch(`${BRIDGE_HTTP}/api/competition`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,21 +217,24 @@ export function CreateCompetition({ onCreated }: Props) {
           battle_id: battleId,
           name: name.trim(),
           location: location.trim(),
-          creator: publicKey?.toBase58() ?? "",
+          creator: publicKey.toBase58(),
           is_team: isTeam,
           team_name: isTeam ? teamName.trim() || null : null,
           members: isTeam ? members.filter((m) => m.alias || m.wallet) : [],
-          robot_a_name: robotA?.name ?? "UNIT_ALPHA",
-          robot_a_attack: robotA?.attack ?? 70,
-          robot_a_defense: robotA?.defense ?? 60,
-          robot_a_speed: robotA?.speed ?? 65,
+          mode,
+          stream_url: mode === "physical" ? streamUrl.trim() : "",
+          on_chain_tx: sig,
+          robot_a_name: robotA.name,
+          robot_a_attack: robotA.attack,
+          robot_a_defense: robotA.defense,
+          robot_a_speed: robotA.speed,
           robot_b_name: robotB.name,
           robot_b_attack: robotB.attack,
           robot_b_defense: robotB.defense,
           robot_b_speed: robotB.speed,
         }),
       });
-      if (!resp.ok) throw new Error(`Error del servidor: ${resp.status}`);
+      if (!resp.ok) throw new Error(`La batalla se creó on-chain (${sig.slice(0, 12)}…) pero el bridge respondió ${resp.status} — reintentá guardar los datos.`);
       setCreated({ id: battleId, name: name.trim() });
       onCreated(battleId);
     } catch (e: unknown) {
@@ -279,7 +261,7 @@ export function CreateCompetition({ onCreated }: Props) {
           </p>
         </div>
         <button
-          onClick={() => { setCreated(null); setName(""); setLocation(""); setTeamName(""); setMembers([{ wallet: "", alias: "", share: 100 }]); }}
+          onClick={() => { setCreated(null); setName(""); setLocation(""); setTeamName(""); setMembers([{ wallet: "", alias: "", share: 100 }]); setRobotB(null); setRobotBCandidates([]); setRobotBWallet(""); }}
           className="px-5 py-2.5 rounded-lg border border-border text-muted text-[10px] font-mono hover:border-primary/40 hover:text-foreground transition-colors tracking-widest"
         >
           ← CREAR OTRA
@@ -309,27 +291,65 @@ export function CreateCompetition({ onCreated }: Props) {
           className="bg-surface border border-border rounded-lg px-3 py-2.5 text-xs font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors" />
       </div>
 
+      {/* Mode toggle */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[9px] tracking-widest text-muted uppercase font-mono">Modalidad</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setMode("online")}
+            className={`py-2.5 rounded-lg text-[10px] font-mono font-bold tracking-widest border transition-colors ${
+              mode === "online" ? "border-primary bg-primary/20 text-primary" : "border-border text-muted"
+            }`}
+          >
+            ⚡ ONLINE (SIMULADA)
+          </button>
+          <button
+            onClick={() => setMode("physical")}
+            className={`py-2.5 rounded-lg text-[10px] font-mono font-bold tracking-widest border transition-colors ${
+              mode === "physical" ? "border-primary bg-primary/20 text-primary" : "border-border text-muted"
+            }`}
+          >
+            🤖 FÍSICA (EN VIVO)
+          </button>
+        </div>
+        {mode === "physical" && (
+          <div className="flex flex-col gap-1.5 mt-1">
+            <label className="text-[8px] text-muted font-mono">
+              Link de transmisión en vivo (YouTube Live, Twitch, etc.)
+            </label>
+            <input
+              type="text"
+              value={streamUrl}
+              onChange={(e) => setStreamUrl(e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
+              className="bg-surface border border-border rounded-lg px-3 py-2 text-[10px] font-mono text-foreground placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+            />
+            <p className="text-[8px] text-muted">
+              Vos vas a hacer de árbitro: reportás golpes y declarás el ganador desde el panel de la batalla.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Robot pickers */}
       <p className="text-[8px] tracking-[0.3em] text-muted uppercase font-mono mt-1">Robots combatientes</p>
-      <RobotCard
+      <RobotPickerCard
         role="A"
-        robot={robotA}
-        loading={loadingA}
-        walletInput={robotAWallet}
-        onWalletChange={setRobotAWallet}
-        onSearch={() => searchRobotByWallet(robotAWallet, "a")}
-        onStatChange={updateRobotA}
-        onNameChange={(v) => setRobotA((p) => ({ ...(p ?? { name: "", attack: 70, defense: 60, speed: 65 }), name: v }))}
+        robots={myRobots}
+        selected={robotA}
+        onSelect={setRobotA}
+        searchable={false}
       />
-      <RobotCard
+      <RobotPickerCard
         role="B"
-        robot={robotB}
-        loading={loadingB}
+        robots={robotBCandidates}
+        selected={robotB}
+        onSelect={setRobotB}
         walletInput={robotBWallet}
         onWalletChange={setRobotBWallet}
-        onSearch={() => searchRobotByWallet(robotBWallet, "b")}
-        onStatChange={updateRobotB}
-        onNameChange={(v) => setRobotB((p) => ({ ...p, name: v }))}
+        onSearch={searchRobotB}
+        searching={searchingB}
+        searchable
       />
 
       {/* Team toggle */}

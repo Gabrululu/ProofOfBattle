@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from "@solana/web3.js";
+import bs58 from "bs58";
 import { PROGRAM_ID, RPC_ENDPOINT } from "./constants";
 
 export const connection = new Connection(RPC_ENDPOINT, "confirmed");
@@ -96,12 +97,17 @@ function readU64LE(buf: Buffer, offset: number): number {
 
 // ─── Robot PDA ───────────────────────────────────────────────────────────────
 
-export function getRobotPDA(owner: PublicKey): [PublicKey, number] {
+// seeds = [b"robot", owner, name] — the on-chain program scopes the robot PDA
+// to owner+name (one owner can register several robots), so a name is
+// required to derive the address. Do not call this with just an owner.
+export function getRobotPDA(owner: PublicKey, name: string): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("robot"), owner.toBuffer()],
+    [Buffer.from("robot"), owner.toBuffer(), Buffer.from(name, "utf8")],
     PROGRAM_ID
   );
 }
+
+const ROBOT_DISCRIMINATOR = Buffer.from([34, 202, 182, 118, 208, 196, 10, 226]);
 
 // ─── Robot struct deserialization ─────────────────────────────────────────────
 // Layout (8-byte discriminator prefix):
@@ -131,17 +137,12 @@ export interface RobotState {
   isActive: boolean;
 }
 
-export async function fetchRobotState(owner: PublicKey): Promise<RobotState | null> {
-  const [robotPDA] = getRobotPDA(owner);
-  const accountInfo = await connection.getAccountInfo(robotPDA);
-  if (!accountInfo) return null;
-
-  const d = accountInfo.data as Buffer;
+function decodeRobot(pda: PublicKey, d: Buffer): RobotState {
   const nameLen = d.readUInt32LE(40);
   const name = d.subarray(44, 44 + nameLen).toString("utf8");
   const b = 44 + nameLen;
   return {
-    pda: robotPDA.toString(),
+    pda: pda.toString(),
     owner: new PublicKey(d.subarray(8, 40)).toString(),
     name,
     attack: d[b],
@@ -154,10 +155,40 @@ export async function fetchRobotState(owner: PublicKey): Promise<RobotState | nu
   };
 }
 
+// One owner can register several robots (PDA is scoped by owner+name), so
+// "which robots does this wallet have" can't be answered by guessing a PDA —
+// scan for Robot accounts whose owner field (offset 8, 32 bytes) matches.
+export async function fetchRobotsByOwner(owner: PublicKey): Promise<RobotState[]> {
+  const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+    filters: [
+      { memcmp: { offset: 0, bytes: bs58.encode(ROBOT_DISCRIMINATOR) } },
+      { memcmp: { offset: 8, bytes: owner.toBase58() } },
+    ],
+  });
+  return accounts.map((a) => decodeRobot(a.pubkey, a.account.data as Buffer));
+}
+
+// Fetch a single, already-known robot by its exact PDA (e.g. to decode
+// battle.robotA/robotB, whose owner may not be the connected wallet).
+export async function fetchRobotByPDA(pda: PublicKey): Promise<RobotState | null> {
+  const info = await connection.getAccountInfo(pda);
+  if (!info) return null;
+  return decodeRobot(pda, info.data as Buffer);
+}
+
 // ─── Instruction discriminators ──────────────────────────────────────────────
 
 export const CLAIM_WINNINGS_DISCRIMINATOR = Buffer.from([161, 215, 24, 59, 14, 236, 242, 221]);
 export const REGISTER_ROBOT_DISCRIMINATOR = Buffer.from([197, 125, 231, 27, 239, 130, 255, 186]);
+export const CREATE_BATTLE_DISCRIMINATOR = Buffer.from([2, 249, 54, 216, 42, 99, 187, 102]);
+
+export function serializeCreateBattle(battleId: number, entryFee: number): Buffer {
+  const battleIdBuf = Buffer.alloc(8);
+  battleIdBuf.writeBigUInt64LE(BigInt(battleId));
+  const entryFeeBuf = Buffer.alloc(8);
+  entryFeeBuf.writeBigUInt64LE(BigInt(entryFee));
+  return Buffer.concat([CREATE_BATTLE_DISCRIMINATOR, battleIdBuf, entryFeeBuf]);
+}
 
 export function serializeRegisterRobot(
   name: string,

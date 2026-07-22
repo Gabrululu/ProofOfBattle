@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from "@solana/web3.js";
+import bs58 from "bs58";
 
 export const PROGRAM_ID = new PublicKey(
   "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
@@ -48,12 +49,17 @@ function battleIdSeed(battleId: number): Uint8Array {
   return buf;
 }
 
-export function getRobotPDA(owner: PublicKey): [PublicKey, number] {
+// seeds = [b"robot", owner, name] — the on-chain program scopes the robot PDA
+// to owner+name (one owner can register several robots), so a name is
+// required to derive the address. Do not call this with just an owner.
+export function getRobotPDA(owner: PublicKey, name: string): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [new TextEncoder().encode("robot"), owner.toBuffer()],
+    [new TextEncoder().encode("robot"), owner.toBuffer(), new TextEncoder().encode(name)],
     PROGRAM_ID
   );
 }
+
+const ROBOT_DISCRIMINATOR = Uint8Array.from([34, 202, 182, 118, 208, 196, 10, 226]);
 
 export function getBattlePDA(battleId: number): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
@@ -90,30 +96,50 @@ export interface RobotState {
   isActive: boolean;
 }
 
-export async function fetchRobotState(
-  connection: Connection,
-  owner: PublicKey
-): Promise<RobotState | null> {
-  const [robotPDA] = getRobotPDA(owner);
-  const accountInfo = await connection.getAccountInfo(robotPDA);
-  if (!accountInfo) return null;
-
-  const d = accountInfo.data;
-  const nameLen = d.readUInt32LE(40);
-  const name = d.subarray(44, 44 + nameLen).toString("utf8");
+function decodeRobot(pda: PublicKey, d: Buffer | Uint8Array): RobotState {
+  const buf = d instanceof Buffer ? d : Buffer.from(d);
+  const nameLen = buf.readUInt32LE(40);
+  const name = buf.subarray(44, 44 + nameLen).toString("utf8");
   const b = 44 + nameLen;
   return {
-    pda: robotPDA.toString(),
-    owner: new PublicKey(d.subarray(8, 40)).toString(),
+    pda: pda.toString(),
+    owner: new PublicKey(buf.subarray(8, 40)).toString(),
     name,
-    attack: d[b],
-    defense: d[b + 1],
-    speed: d[b + 2],
-    wins: d.readUInt32LE(b + 3),
-    losses: d.readUInt32LE(b + 7),
-    hp: d[b + 11],
-    isActive: d[b + 12] !== 0,
+    attack: buf[b],
+    defense: buf[b + 1],
+    speed: buf[b + 2],
+    wins: buf.readUInt32LE(b + 3),
+    losses: buf.readUInt32LE(b + 7),
+    hp: buf[b + 11],
+    isActive: buf[b + 12] !== 0,
   };
+}
+
+// One owner can register several robots (PDA is scoped by owner+name), so
+// "which robots does this wallet have" can't be answered by guessing a PDA —
+// scan for Robot accounts whose owner field (offset 8, 32 bytes) matches.
+export async function fetchRobotsByOwner(
+  connection: Connection,
+  owner: PublicKey
+): Promise<RobotState[]> {
+  const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+    filters: [
+      { memcmp: { offset: 0, bytes: bs58.encode(ROBOT_DISCRIMINATOR) } },
+      { memcmp: { offset: 8, bytes: owner.toBase58() } },
+    ],
+  });
+  return accounts.map((a) => decodeRobot(a.pubkey, a.account.data));
+}
+
+// Fetch a single, already-known robot by its exact PDA (e.g. to decode
+// chainBattle.robotA/robotB, whose owner may not be the connected wallet).
+export async function fetchRobotByPDA(
+  connection: Connection,
+  pda: PublicKey
+): Promise<RobotState | null> {
+  const info = await connection.getAccountInfo(pda);
+  if (!info) return null;
+  return decodeRobot(pda, info.data);
 }
 
 // ─── Battle struct deserialization ───────────────────────────────────────────

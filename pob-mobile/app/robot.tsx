@@ -13,7 +13,7 @@ import {
 } from "../lib/program";
 import { PROGRAM_ID, BRIDGE_BASE_URL } from "../lib/constants";
 import { useWallet } from "../hooks/useWallet";
-import { useRobot } from "../hooks/useRobot";
+import { useRobots } from "../hooks/useRobot";
 import { WalletButton } from "../components/WalletButton";
 import { toast } from "../components/Toast";
 import { C, MONO, SANS_900 } from "../lib/theme";
@@ -72,7 +72,8 @@ function StatBar({ label, value, color }: { label: string; value: number; color:
 export default function RobotScreen() {
   const router = useRouter();
   const { publicKey, connect, disconnect, connecting, isWebPreview, authorizeSession } = useWallet();
-  const { robot, loading, reload } = useRobot(publicKey);
+  const { robots, selectedRobot, selectRobot, loading, reload } = useRobots(publicKey);
+  const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
   const [preset, setPreset] = useState(PRESETS[0]);
   const [isCustom, setIsCustom] = useState(false);
@@ -90,6 +91,11 @@ export default function RobotScreen() {
       .then((raw) => { if (raw) setSavedLoadouts(JSON.parse(raw)); })
       .catch(() => {});
   }, []);
+
+  // Open the form automatically the first time we learn this wallet has no robots yet.
+  useEffect(() => {
+    if (!loading && robots.length === 0) setFormOpen(true);
+  }, [loading, robots.length]);
 
   const persistLoadouts = async (next: SavedLoadout[]) => {
     setSavedLoadouts(next);
@@ -135,7 +141,7 @@ export default function RobotScreen() {
     }
     setMinting(true);
     try {
-      const [robotPDA] = getRobotPDA(publicKey);
+      const [robotPDA] = getRobotPDA(publicKey, trimmed);
       const data = serializeRegisterRobot(trimmed, activeStats.attack, activeStats.defense, activeStats.speed);
 
       await transact(async (wallet: Parameters<Parameters<typeof transact>[0]>[0]) => {
@@ -201,53 +207,70 @@ export default function RobotScreen() {
           </View>
         ) : loading ? (
           <ActivityIndicator color={C.purple} style={{ marginTop: 40 }} />
-        ) : robot ? (
-          /* ── ROBOT EXISTS ─────────────────────────────── */
-          <View style={sty.robotCard}>
-            <View style={sty.robotHeader}>
-              <Text style={sty.robotName}>{robot.name}</Text>
-              <View style={[sty.badge, { backgroundColor: robot.isActive ? C.green : C.textDim }]}>
-                <Text style={sty.badgeText}>{robot.isActive ? "ACTIVE" : "STANDBY"}</Text>
-              </View>
-            </View>
-
-            <View style={sty.record}>
-              <View style={sty.recordItem}>
-                <Text style={[sty.recordVal, { color: C.green }]}>{robot.wins}</Text>
-                <Text style={sty.recordLbl}>WINS</Text>
-              </View>
-              <View style={sty.recordDivider} />
-              <View style={sty.recordItem}>
-                <Text style={[sty.recordVal, { color: C.danger }]}>{robot.losses}</Text>
-                <Text style={sty.recordLbl}>LOSSES</Text>
-              </View>
-              <View style={sty.recordDivider} />
-              <View style={sty.recordItem}>
-                <Text style={[sty.recordVal, { color: C.teal }]}>{robot.hp}</Text>
-                <Text style={sty.recordLbl}>HP</Text>
-              </View>
-            </View>
-
-            <View style={sty.stats}>
-              <Text style={sty.statsTitle}>COMBAT SPECS</Text>
-              <StatBar label="ATK" value={robot.attack}  color={C.danger}  />
-              <StatBar label="DEF" value={robot.defense} color={C.teal}    />
-              <StatBar label="SPD" value={robot.speed}   color={C.waiting} />
-            </View>
-
-            <Text style={sty.pdaText}>
-              PDA: {robot.pda.slice(0, 8)}…{robot.pda.slice(-8)}
-            </Text>
-
-            <TouchableOpacity
-              style={sty.resourcesLink}
-              onPress={() => router.push("/resources" as Href)}
-              activeOpacity={0.75}
-            >
-              <Text style={sty.resourcesLinkText}>🛠 Builder Resources →</Text>
-            </TouchableOpacity>
-          </View>
         ) : (
+          <>
+          {/* ── MY ROBOTS ─────────────────────────────── */}
+          {robots.length > 0 && (
+            <View style={{ gap: 12 }}>
+              {robots.map((r) => (
+                <View key={r.pda} style={sty.robotCard}>
+                  <View style={sty.robotHeader}>
+                    <Text style={sty.robotName}>{r.name}</Text>
+                    {selectedRobot?.pda === r.pda ? (
+                      <View style={[sty.badge, { backgroundColor: C.green }]}>
+                        <Text style={sty.badgeText}>ACTIVE</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={sty.useBtn}
+                        onPress={() => selectRobot(r.name)}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={sty.useBtnText}>USE THIS ONE</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={sty.record}>
+                    <View style={sty.recordItem}>
+                      <Text style={[sty.recordVal, { color: C.green }]}>{r.wins}</Text>
+                      <Text style={sty.recordLbl}>WINS</Text>
+                    </View>
+                    <View style={sty.recordDivider} />
+                    <View style={sty.recordItem}>
+                      <Text style={[sty.recordVal, { color: C.danger }]}>{r.losses}</Text>
+                      <Text style={sty.recordLbl}>LOSSES</Text>
+                    </View>
+                    <View style={sty.recordDivider} />
+                    <View style={sty.recordItem}>
+                      <Text style={[sty.recordVal, { color: C.teal }]}>{r.hp}</Text>
+                      <Text style={sty.recordLbl}>HP</Text>
+                    </View>
+                  </View>
+
+                  <View style={sty.stats}>
+                    <StatBar label="ATK" value={r.attack}  color={C.danger}  />
+                    <StatBar label="DEF" value={r.defense} color={C.teal}    />
+                    <StatBar label="SPD" value={r.speed}   color={C.waiting} />
+                  </View>
+
+                  <Text style={sty.pdaText}>
+                    PDA: {r.pda.slice(0, 8)}…{r.pda.slice(-8)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {!formOpen ? (
+            <TouchableOpacity
+              style={sty.addAnotherBtn}
+              onPress={() => setFormOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={sty.addAnotherBtnText}>+ REGISTER ANOTHER ROBOT</Text>
+            </TouchableOpacity>
+          ) : (
           /* ── REGISTRATION FORM ────────────────────────── */
           <View style={sty.form}>
             <Text style={sty.formTitle}>FORGE YOUR ROBOT</Text>
@@ -406,6 +429,8 @@ export default function RobotScreen() {
               }
             </TouchableOpacity>
           </View>
+          )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -436,6 +461,18 @@ const sty = StyleSheet.create({
   recordVal:    { fontFamily: MONO, fontSize: 24, fontWeight: "900" },
   recordLbl:    { fontFamily: MONO, color: C.textDim, fontSize: 8, letterSpacing: 2 },
   pdaText:      { fontFamily: MONO, color: C.textDim, fontSize: 9, textAlign: "center" },
+
+  useBtn: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 6,
+    paddingHorizontal: 10, paddingVertical: 5,
+  },
+  useBtnText: { fontFamily: MONO, color: C.textDim, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+
+  addAnotherBtn: {
+    borderWidth: 1, borderColor: C.purple + "60", backgroundColor: C.purple + "15",
+    borderRadius: 10, paddingVertical: 12, alignItems: "center",
+  },
+  addAnotherBtnText: { fontFamily: MONO, color: C.purple, fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
 
   // Form
   form:       { gap: 14 },

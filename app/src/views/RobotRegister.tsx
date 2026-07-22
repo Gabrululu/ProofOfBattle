@@ -1,11 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Transaction } from "@solana/web3.js";
 import { useProgram } from "../hooks/useProgram";
+import { useRobots } from "../hooks/useRobot";
 import { ROBOT_CATEGORIES } from "../types";
 import { BRIDGE_HTTP_URL as BRIDGE_HTTP } from "../lib/bridge";
 import { confirmWithTimeout } from "../lib/program";
+
+function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-1">
+      <span className="text-[7px] font-mono text-muted w-6">{label}</span>
+      <div className="flex-1 h-1 bg-background rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
+      </div>
+      <span className="text-[8px] font-mono w-5 text-right" style={{ color }}>{value}</span>
+    </div>
+  );
+}
 
 function StatSlider({
   label,
@@ -51,7 +64,9 @@ export function RobotRegister() {
   const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const program = useProgram();
+  const { robots, selectedRobot, selectRobot, loading: robotsLoading, reload } = useRobots(publicKey);
 
+  const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
   const [attack, setAttack] = useState(70);
   const [defense, setDefense] = useState(60);
@@ -60,6 +75,11 @@ export function RobotRegister() {
   const [loading, setLoading] = useState(false);
   const [tx, setTx] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Open the form automatically the first time we learn this wallet has no robots yet.
+  useEffect(() => {
+    if (!robotsLoading && robots.length === 0) setFormOpen(true);
+  }, [robotsLoading, robots.length]);
 
   const toggleCategory = (cat: string) => {
     setCategories((prev) =>
@@ -106,6 +126,7 @@ export function RobotRegister() {
       }).catch(() => {});
 
       setTx(sig);
+      reload();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Registration failed");
     } finally {
@@ -119,13 +140,61 @@ export function RobotRegister() {
     <div className="flex flex-col gap-4 p-4 md:p-8 max-w-2xl mx-auto pb-24 md:pb-8">
       <div>
         <h2 className="text-sm font-black tracking-[0.3em] text-foreground uppercase">
-          Register Robot
+          My Robots
         </h2>
         <p className="text-[9px] text-muted tracking-wider mt-0.5">
-          Inscribe your competition robot on-chain
+          A wallet can own several robots — pick which one is active.
         </p>
       </div>
 
+      {/* Existing robots */}
+      {connected && robotsLoading && (
+        <p className="text-[9px] font-mono text-muted">◌ Loading your robots…</p>
+      )}
+      {connected && !robotsLoading && robots.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {robots.map((r) => (
+            <div
+              key={r.pda}
+              className={`bg-surface border rounded-lg p-3 flex flex-col gap-2 transition-colors ${
+                selectedRobot?.pda === r.pda ? "border-primary" : "border-border"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-foreground tracking-wider">{r.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] font-mono text-muted">{r.wins}W-{r.losses}L</span>
+                  {selectedRobot?.pda === r.pda ? (
+                    <span className="text-[8px] font-mono text-primary font-bold">✓ ACTIVE</span>
+                  ) : (
+                    <button
+                      onClick={() => selectRobot(r.name)}
+                      className="text-[8px] font-mono text-muted hover:text-primary border border-border hover:border-primary/60 rounded px-2 py-0.5 transition-colors"
+                    >
+                      USE THIS ONE
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <MiniStat label="ATK" value={r.attack} color="#ef4444" />
+                <MiniStat label="DEF" value={r.defense} color="#3b82f6" />
+                <MiniStat label="SPD" value={r.speed} color="#22c55e" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!formOpen ? (
+        <button
+          onClick={() => setFormOpen(true)}
+          className="text-[10px] font-mono text-primary hover:bg-primary/10 border border-primary/60 px-3 py-2.5 rounded-lg transition-colors self-start"
+        >
+          + REGISTER ANOTHER ROBOT
+        </button>
+      ) : (
+      <>
       {/* Name */}
       <div className="flex flex-col gap-1.5">
         <label className="text-[9px] tracking-widest text-muted uppercase font-mono">
@@ -224,6 +293,8 @@ export function RobotRegister() {
           ? "ENTER ROBOT NAME"
           : "⬤ REGISTER ON-CHAIN"}
       </button>
+      </>
+      )}
 
       {tx && (
         <div className="border border-green-900/60 rounded-lg p-3 bg-green-950/20 flex flex-col gap-1">
