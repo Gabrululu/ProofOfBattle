@@ -7,7 +7,7 @@ import {
   LAMPORTS_PER_SOL, TransactionInstruction,
 } from "@solana/web3.js";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-import { connection, getBattlePDA, getVaultPDA, getBetPDA } from "../lib/program";
+import { connection, getBattlePDA, getVaultPDA, getBetPDA, confirmWithTimeout } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
 import { C, MONO, SANS_700, SANS_900 } from "../lib/theme";
 import { useWallet } from "../hooks/useWallet";
@@ -56,7 +56,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB, nameA = 
 
       await transact(async (wallet: any) => {
         await authorizeSession(wallet);
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -71,7 +71,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB, nameA = 
         }));
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(sig, "confirmed");
+        await confirmWithTimeout(sig, blockhash, lastValidBlockHeight);
         toast.success(
           `Bet placed — ${amount} SOL on Robot ${side === 0 ? "A" : "B"}`,
           sig.slice(0, 16) + "…",

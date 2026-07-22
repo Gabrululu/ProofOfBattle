@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { Transaction } from "@solana/web3.js";
 import { useProgram } from "../hooks/useProgram";
 import { ROBOT_CATEGORIES } from "../types";
 import { BRIDGE_HTTP_URL as BRIDGE_HTTP } from "../lib/bridge";
+import { confirmWithTimeout } from "../lib/program";
 
 function StatSlider({
   label,
@@ -45,7 +47,8 @@ function StatSlider({
 }
 
 export function RobotRegister() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const program = useProgram();
 
@@ -69,18 +72,24 @@ export function RobotRegister() {
       setVisible(true);
       return;
     }
-    if (!program || !publicKey || !name.trim()) return;
+    if (!program || !publicKey || !signTransaction || !name.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const sig = await (program.methods as unknown as {
+      const ix = await (program.methods as unknown as {
         registerRobot: (name: string, attack: number, defense: number, speed: number) => {
-          accounts: (a: object) => { rpc: () => Promise<string> };
+          accounts: (a: object) => { instruction: () => Promise<import("@solana/web3.js").TransactionInstruction> };
         };
       })
         .registerRobot(name.trim(), attack, defense, speed)
         .accounts({ owner: publicKey })
-        .rpc();
+        .instruction();
+
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const unsigned = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey }).add(ix);
+      const signed = await signTransaction(unsigned);
+      const sig = await connection.sendRawTransaction(signed.serialize());
+      await confirmWithTimeout(connection, sig, blockhash, lastValidBlockHeight);
 
       // Store profile in bridge (non-critical)
       fetch(`${BRIDGE_HTTP}/api/robot-profile`, {

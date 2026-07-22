@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { Transaction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { useProgram } from "../hooks/useProgram";
+import { confirmWithTimeout } from "../lib/program";
 
 const LAMPORTS = 1_000_000_000;
 const BET_SOL = 0.05;
@@ -17,7 +19,8 @@ interface Props {
 }
 
 export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, nameA = "UNIT A", nameB = "UNIT B" }: Props) {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
   const program = useProgram();
   const [loading, setLoading] = useState<"a" | "b" | "claim" | null>(null);
@@ -32,36 +35,47 @@ export function BettingPanel({ arenaId, totalBetsA, totalBetsB, isFinished, name
 
   const bet = async (side: 0 | 1) => {
     if (!connected) { setVisible(true); return; }
-    if (!program || !publicKey) return;
+    if (!program || !publicKey || !signTransaction) return;
     const label = side === 0 ? "a" : "b";
     setLoading(label);
     setError(null);
     try {
-      const tx = await program.methods
+      const ix = await program.methods
         .placeBet(new BN(arenaId), side, new BN(Math.floor(BET_SOL * LAMPORTS)))
         .accounts({ bettor: publicKey })
-        .rpc();
-      setLastTx(tx);
+        .instruction();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey }).add(ix);
+      const signed = await signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signed.serialize());
+      await confirmWithTimeout(connection, sig, blockhash, lastValidBlockHeight);
+      setLastTx(sig);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(msg.includes("custom program error") ? "Tx failed — check wallet balance" : "Transaction failed");
+      setError(msg.includes("custom program error") ? "Tx failed — check wallet balance" : msg);
     } finally {
       setLoading(null);
     }
   };
 
   const claim = async () => {
-    if (!program || !publicKey) return;
+    if (!program || !publicKey || !signTransaction) return;
     setLoading("claim");
     setError(null);
     try {
-      const tx = await program.methods
+      const ix = await program.methods
         .claimWinnings(new BN(arenaId))
         .accounts({ bettor: publicKey })
-        .rpc();
-      setLastTx(tx);
+        .instruction();
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey }).add(ix);
+      const signed = await signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signed.serialize());
+      await confirmWithTimeout(connection, sig, blockhash, lastValidBlockHeight);
+      setLastTx(sig);
     } catch (e: unknown) {
-      setError("Claim failed — no winnings or already claimed");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg.includes("custom program error") ? "Claim failed — no winnings or already claimed" : msg);
     } finally {
       setLoading(null);
     }

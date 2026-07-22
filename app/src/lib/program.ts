@@ -4,6 +4,42 @@ export const PROGRAM_ID = new PublicKey(
   "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
 );
 
+// ─── Transaction confirmation ────────────────────────────────────────────────
+
+// connection.confirmTransaction(signature, commitment) — the signature-only
+// overload — has no notion of blockhash expiry and can hang indefinitely if
+// the RPC's websocket subscription never fires (common on congested public
+// endpoints). Use the blockhash-aware form plus our own hard timeout so the
+// caller always gets a resolved/rejected promise instead of a stuck UI.
+export async function confirmWithTimeout(
+  connection: Connection,
+  signature: string,
+  blockhash: string,
+  lastValidBlockHeight: number,
+  timeoutMs = 30000
+): Promise<void> {
+  const confirmation = connection.confirmTransaction(
+    { signature, blockhash, lastValidBlockHeight },
+    "confirmed"
+  );
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(
+        `Confirmation timed out — check devnet explorer for ${signature.slice(0, 12)}…`
+      )),
+      timeoutMs
+    );
+  });
+  try {
+    const { value } = await Promise.race([confirmation, timeout]);
+    if (value.err) throw new Error(`On-chain error: ${JSON.stringify(value.err)}`);
+  } finally {
+    clearTimeout(timer!);
+    confirmation.catch(() => {}); // avoid unhandled rejection if timeout won the race
+  }
+}
+
 // ─── PDA helpers ─────────────────────────────────────────────────────────────
 
 function battleIdSeed(battleId: number): Uint8Array {

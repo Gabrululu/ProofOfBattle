@@ -9,7 +9,7 @@ import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from "@
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  connection, getRobotPDA, serializeRegisterRobot,
+  connection, getRobotPDA, serializeRegisterRobot, confirmWithTimeout,
 } from "../lib/program";
 import { PROGRAM_ID, BRIDGE_BASE_URL } from "../lib/constants";
 import { useWallet } from "../hooks/useWallet";
@@ -140,7 +140,7 @@ export default function RobotScreen() {
 
       await transact(async (wallet: Parameters<Parameters<typeof transact>[0]>[0]) => {
         await authorizeSession(wallet);
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -153,7 +153,7 @@ export default function RobotScreen() {
         }));
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(sig, "confirmed");
+        await confirmWithTimeout(sig, blockhash, lastValidBlockHeight);
 
         // Save profile to bridge (non-critical)
         fetch(`${BRIDGE_BASE_URL}/api/robot-profile`, {

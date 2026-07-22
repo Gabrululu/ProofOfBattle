@@ -10,7 +10,7 @@ import {
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import {
   connection, getBattlePDA, getVaultPDA, getBetPDA,
-  fetchBetState, CLAIM_WINNINGS_DISCRIMINATOR,
+  fetchBetState, CLAIM_WINNINGS_DISCRIMINATOR, confirmWithTimeout,
 } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
 import { C, MONO, SANS_900 } from "../lib/theme";
@@ -68,7 +68,7 @@ export function ClaimPanel({ battleId, publicKey, winner }: Props) {
 
       await transact(async (wallet: any) => {
         await authorizeSession(wallet);
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -83,7 +83,7 @@ export function ClaimPanel({ battleId, publicKey, winner }: Props) {
         }));
         const [signed] = await wallet.signTransactions({ transactions: [tx] });
         const sig = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(sig, "confirmed");
+        await confirmWithTimeout(sig, blockhash, lastValidBlockHeight);
         setBet((prev) => prev ? { ...prev, claimed: true } : prev);
         Alert.alert(
           "Claimed!",
