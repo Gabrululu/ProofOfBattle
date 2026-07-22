@@ -15,12 +15,12 @@ const tickerItems = [
 
 const instructions = [
   { name: "register_robot", desc: "Create robot PDA with name, attack, defense, speed.", auth: "User Signed", muted: true },
-  { name: "create_battle", desc: "Open a battle and SOL vault PDA for bets.", auth: "User Signed", muted: true },
+  { name: "create_battle", desc: "Open a battle and SOL vault PDA for backing.", auth: "User Signed", muted: true },
   { name: "place_bet", desc: "Lock SOL into the vault — inaccessible until resolution.", auth: "Open to Public", muted: true },
-  { name: "start_battle", desc: "Transition Waiting → Active, closes betting window.", auth: "User Signed", muted: true },
+  { name: "start_battle", desc: "Transition Waiting → Active, closes backing window.", auth: "User Signed", muted: true },
   { name: "report_damage", desc: "Deduct HP from targets based on Webots collision sensors.", auth: "Bridge Authority", muted: false },
   { name: "resolve_battle", desc: "Declare winner, update robot W/L records on-chain.", auth: "Program Logic", muted: false },
-  { name: "claim_winnings", desc: "Trustless payout — (your_bet / winning_pool) × pool × 0.95.", auth: "Winner Signed", muted: true },
+  { name: "claim_winnings", desc: "Trustless payout — (your_back / winning_pool) × pool × 0.95.", auth: "Winner Signed", muted: true },
 ];
 
 const competitions = [
@@ -28,7 +28,7 @@ const competitions = [
   { code: "ARN_02", name: "Minisumo · Autonomous", spec: "500g · 10×10cm · dohyo Ø77cm", desc: "Two autonomous bots push each other off a circular ring. Edge sensors, opponent radar, and three-second start delay — all sensor traces hashed on-chain.", status: "OPEN" },
   { code: "ARN_03", name: "Minisumo · Bluetooth", spec: "500g · human-piloted · low latency", desc: "Commander mode. The mobile app pilots the bot over BLE while voice commands trigger maneuvers transcribed by ElevenLabs Scribe.", status: "LIVE" },
   { code: "ARN_04", name: "Line Followers", spec: "PID · 1m/s+ · 19mm black tape", desc: "Speed-run track with hairpin turns and forks. Lap times and crash events are signed and posted by the arena bridge.", status: "OPEN" },
-  { code: "ARN_05", name: "Bugs Racer", spec: "vibration bots · 4-lane drag strip", desc: "Chaotic micro-bots powered by offset motors race a straight 1.5m strip. Finish-line laser gates settle bets in under three seconds.", status: "QUALIFYING" },
+  { code: "ARN_05", name: "Bugs Racer", spec: "vibration bots · 4-lane drag strip", desc: "Chaotic micro-bots powered by offset motors race a straight 1.5m strip. Finish-line laser gates settle backing in under three seconds.", status: "QUALIFYING" },
   { code: "ARN_06", name: "ARES Combat", spec: "simulated · Webots R2023b", desc: "The flagship: voice-commanded mechs in a physics-accurate sim. Every collision is an Anchor instruction; every kill is final.", status: "FEATURED" },
 ];
 
@@ -297,7 +297,7 @@ export function MarketingLanding() {
                 { n: "01", k: "INPUT", t: "Commander", d: "Natural language via ElevenLabs Scribe. Human voice transcribes to tactical commands.", s: "STT: scribe_v1" },
                 { n: "02", k: "ARBITER", t: "Bridge", d: "ARES Tactical AI (Virtuals G.A.M.E. SDK) parses sensor data + voice and emits action JSON.", s: "SDK: G.A.M.E. V2" },
                 { n: "03", k: "EXECUTION", t: "Simulation", d: "Webots physics engine handles real-time collision. Touch sensors emit damage events.", s: "ENGINE: Webots R2023b" },
-                { n: "04", k: "RECORD", t: "Solana", d: "Every hit is an on-chain instruction. PDA vault manages trustless betting payouts.", s: "PROGRAM: Anchor 1.0.2" },
+                { n: "04", k: "RECORD", t: "Solana", d: "Every hit is an on-chain instruction. PDA vault manages trustless backing payouts.", s: "PROGRAM: Anchor 1.0.2" },
               ].map((c, idx) => {
                 const accent = idx % 2 === 0 ? "text-primary" : "text-[color:var(--color-secondary)]";
                 const bar = idx % 2 === 0 ? "border-t-primary" : "border-t-[color:var(--color-secondary)]";
@@ -350,7 +350,7 @@ export function MarketingLanding() {
             </div>
 
             <p className="mt-6 text-xs font-mono text-muted">
-              PAYOUT: <span className="text-foreground">(your_bet / winning_pool) × total_pool × 0.95</span> — calculated on-chain, no off-chain math.
+              PAYOUT: <span className="text-foreground">(your_back / winning_pool) × total_pool × 0.95</span> — calculated on-chain, no off-chain math.
             </p>
           </div>
         </section>

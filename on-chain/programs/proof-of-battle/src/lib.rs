@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 declare_id!("9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP");
 
@@ -219,6 +221,113 @@ pub mod proof_of_battle {
 
         Ok(())
     }
+
+    // ─── SPL token (e.g. USDC) backing — parallel to place_bet/claim_winnings,
+    // pooled separately per mint so currencies never mix into one payout ───
+
+    pub fn place_bet_token(
+        ctx: Context<PlaceBetToken>,
+        battle_id: u64,
+        side: u8,
+        amount: u64,
+    ) -> Result<()> {
+        require!(amount > 0, PoBError::InvalidBetAmount);
+        require!(side == 0 || side == 1, PoBError::InvalidSide);
+
+        let battle = &mut ctx.accounts.battle;
+        require!(battle.status == BattleStatus::Waiting, PoBError::BattleNotOpen);
+
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.key(),
+                Transfer {
+                    from: ctx.accounts.bettor_token_account.to_account_info(),
+                    to: ctx.accounts.vault_token.to_account_info(),
+                    authority: ctx.accounts.bettor.to_account_info(),
+                },
+            ),
+            amount,
+        )?;
+
+        let bet_token = &mut ctx.accounts.bet_token;
+        bet_token.bettor = ctx.accounts.bettor.key();
+        bet_token.battle_id = battle_id;
+        bet_token.mint = ctx.accounts.mint.key();
+        bet_token.side = side;
+        bet_token.amount = amount;
+        bet_token.claimed = false;
+        bet_token.bump = ctx.bumps.bet_token;
+
+        if side == 0 {
+            battle.total_back_a_usdc = battle.total_back_a_usdc.checked_add(amount).unwrap();
+        } else {
+            battle.total_back_b_usdc = battle.total_back_b_usdc.checked_add(amount).unwrap();
+        }
+
+        emit!(BetTokenPlaced {
+            bettor: bet_token.bettor,
+            battle_id,
+            mint: bet_token.mint,
+            side,
+            amount,
+        });
+
+        Ok(())
+    }
+
+    pub fn claim_winnings_token(ctx: Context<ClaimWinningsToken>, battle_id: u64) -> Result<()> {
+        let battle = &ctx.accounts.battle;
+        let bet_token = &mut ctx.accounts.bet_token;
+
+        require!(battle.status == BattleStatus::Finished, PoBError::BattleNotFinished);
+        require!(!bet_token.claimed, PoBError::AlreadyClaimed);
+        require!(bet_token.battle_id == battle_id, PoBError::WrongBattle);
+
+        let winner = battle.winner.ok_or(PoBError::NoWinner)?;
+        require!(bet_token.side == winner, PoBError::DidNotWin);
+
+        let total_pool = battle.total_back_a_usdc.checked_add(battle.total_back_b_usdc).unwrap();
+        let winning_pool = if winner == 0 { battle.total_back_a_usdc } else { battle.total_back_b_usdc };
+
+        let payout = (bet_token.amount as u128)
+            .checked_mul(total_pool as u128).unwrap()
+            .checked_mul(95).unwrap()
+            .checked_div(winning_pool as u128).unwrap()
+            .checked_div(100).unwrap() as u64;
+
+        let battle_id_bytes = battle_id.to_le_bytes();
+        let mint_key = ctx.accounts.mint.key();
+        let signer_seeds: &[&[u8]] = &[
+            b"vault_auth",
+            battle_id_bytes.as_ref(),
+            mint_key.as_ref(),
+            &[ctx.bumps.vault_authority],
+        ];
+
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.key(),
+                Transfer {
+                    from: ctx.accounts.vault_token.to_account_info(),
+                    to: ctx.accounts.bettor_token_account.to_account_info(),
+                    authority: ctx.accounts.vault_authority.to_account_info(),
+                },
+                &[signer_seeds],
+            ),
+            payout,
+        )?;
+
+        bet_token.claimed = true;
+
+        emit!(TokenWinningsClaimed {
+            bettor: bet_token.bettor,
+            battle_id,
+            mint: mint_key,
+            payout,
+        });
+
+        Ok(())
+    }
 }
 
 // ─── Accounts ────────────────────────────────────────────────────────────────
@@ -362,6 +471,83 @@ pub struct ClaimWinnings<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(battle_id: u64, side: u8, amount: u64)]
+pub struct PlaceBetToken<'info> {
+    #[account(
+        mut,
+        seeds = [b"battle", battle_id.to_le_bytes().as_ref()],
+        bump = battle.bump
+    )]
+    pub battle: Account<'info, Battle>,
+    #[account(
+        init,
+        payer = bettor,
+        space = BetToken::LEN,
+        seeds = [b"bet_token", battle_id.to_le_bytes().as_ref(), mint.key().as_ref(), bettor.key().as_ref()],
+        bump
+    )]
+    pub bet_token: Account<'info, BetToken>,
+    /// CHECK: PDA signer-only authority for the token vault — never holds
+    /// data itself, seeds are validated below.
+    #[account(
+        seeds = [b"vault_auth", battle_id.to_le_bytes().as_ref(), mint.key().as_ref()],
+        bump
+    )]
+    pub vault_authority: UncheckedAccount<'info>,
+    #[account(
+        init_if_needed,
+        payer = bettor,
+        seeds = [b"vault_token", battle_id.to_le_bytes().as_ref(), mint.key().as_ref()],
+        bump,
+        token::mint = mint,
+        token::authority = vault_authority,
+    )]
+    pub vault_token: Account<'info, TokenAccount>,
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub bettor_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub bettor: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(battle_id: u64)]
+pub struct ClaimWinningsToken<'info> {
+    #[account(
+        seeds = [b"battle", battle_id.to_le_bytes().as_ref()],
+        bump = battle.bump
+    )]
+    pub battle: Account<'info, Battle>,
+    #[account(
+        mut,
+        seeds = [b"bet_token", battle_id.to_le_bytes().as_ref(), mint.key().as_ref(), bettor.key().as_ref()],
+        bump = bet_token.bump
+    )]
+    pub bet_token: Account<'info, BetToken>,
+    /// CHECK: PDA signer-only authority, validated by seeds
+    #[account(
+        seeds = [b"vault_auth", battle_id.to_le_bytes().as_ref(), mint.key().as_ref()],
+        bump
+    )]
+    pub vault_authority: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"vault_token", battle_id.to_le_bytes().as_ref(), mint.key().as_ref()],
+        bump
+    )]
+    pub vault_token: Account<'info, TokenAccount>,
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub bettor_token_account: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub bettor: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 #[account]
@@ -396,10 +582,14 @@ pub struct Battle {
     pub status: BattleStatus,   // 1
     pub winner: Option<u8>,     // 2
     pub bump: u8,               // 1
+    // Appended for SPL token (e.g. USDC) backing — kept separate from the SOL
+    // pools above so the two currencies never mix into one payout pool.
+    pub total_back_a_usdc: u64, // 8
+    pub total_back_b_usdc: u64, // 8
 }
 
 impl Battle {
-    pub const LEN: usize = 8 + 8 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1 + 1 + 2 + 1;
+    pub const LEN: usize = 8 + 8 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1 + 1 + 2 + 1 + 8 + 8;
 }
 
 #[account]
@@ -414,6 +604,25 @@ pub struct Bet {
 
 impl Bet {
     pub const LEN: usize = 8 + 32 + 8 + 1 + 8 + 1 + 1;
+}
+
+// Parallel to `Bet`, for SPL-token (e.g. USDC) backing instead of native SOL.
+// Kept as a separate struct/PDA rather than adding a `mint` field to `Bet`
+// itself, since that would change `Bet`'s layout and break already-created
+// SOL bets.
+#[account]
+pub struct BetToken {
+    pub bettor: Pubkey,     // 32
+    pub battle_id: u64,     // 8
+    pub mint: Pubkey,       // 32
+    pub side: u8,           // 1
+    pub amount: u64,        // 8 (raw token base units — e.g. USDC has 6 decimals)
+    pub claimed: bool,      // 1
+    pub bump: u8,           // 1
+}
+
+impl BetToken {
+    pub const LEN: usize = 8 + 32 + 8 + 32 + 1 + 8 + 1 + 1;
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -447,6 +656,12 @@ pub struct BattleResolved { pub battle_id: u64, pub winner_side: u8, pub hp_a: u
 
 #[event]
 pub struct WinningsClaimed { pub bettor: Pubkey, pub battle_id: u64, pub payout: u64 }
+
+#[event]
+pub struct BetTokenPlaced { pub bettor: Pubkey, pub battle_id: u64, pub mint: Pubkey, pub side: u8, pub amount: u64 }
+
+#[event]
+pub struct TokenWinningsClaimed { pub bettor: Pubkey, pub battle_id: u64, pub mint: Pubkey, pub payout: u64 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
 

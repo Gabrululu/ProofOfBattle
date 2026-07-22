@@ -4,6 +4,14 @@ export const PROGRAM_ID = new PublicKey(
   "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
 );
 
+// Circle's official devnet USDC mint (6 decimals). The on-chain program
+// accepts any mint for place_bet_token/claim_winnings_token — this is a
+// frontend-level choice, not an on-chain restriction.
+export const USDC_MINT = new PublicKey(
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+);
+export const USDC_DECIMALS = 6;
+
 // EXPO_PUBLIC_ prefix makes these available at build time in Expo.
 // Set them in .env (local) or in EAS secrets / eas.json (build).
 // The public devnet RPC is heavily rate-limited and its confirmTransaction

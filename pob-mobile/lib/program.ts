@@ -71,6 +71,35 @@ export function getBetPDA(
   );
 }
 
+// ─── SPL token (e.g. USDC) backing PDAs ──────────────────────────────────────
+// Pooled separately per mint (place_bet_token/claim_winnings_token) so
+// currencies never mix into one payout pool — see on-chain lib.rs.
+
+export function getBetTokenPDA(
+  battleId: number,
+  mint: PublicKey,
+  bettor: PublicKey
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("bet_token"), battleIdBuffer(battleId), mint.toBuffer(), bettor.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+export function getVaultAuthorityPDA(battleId: number, mint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("vault_auth"), battleIdBuffer(battleId), mint.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+export function getVaultTokenPDA(battleId: number, mint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("vault_token"), battleIdBuffer(battleId), mint.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
 // ─── Battle struct deserialization ───────────────────────────────────────────
 // Layout (Anchor 8-byte discriminator prefix):
 //   0-7   discriminator
@@ -207,6 +236,25 @@ export function serializeRegisterRobot(
   ]);
 }
 
+// ─── SPL token (e.g. USDC) backing instructions ──────────────────────────────
+
+export const PLACE_BET_TOKEN_DISCRIMINATOR = Buffer.from([159, 141, 217, 64, 132, 165, 95, 132]);
+export const CLAIM_WINNINGS_TOKEN_DISCRIMINATOR = Buffer.from([98, 33, 1, 1, 206, 12, 46, 231]);
+
+export function serializePlaceBetToken(battleId: number, side: 0 | 1, amount: number): Buffer {
+  const battleIdBuf = Buffer.alloc(8);
+  battleIdBuf.writeBigUInt64LE(BigInt(battleId));
+  const amountBuf = Buffer.alloc(8);
+  amountBuf.writeBigUInt64LE(BigInt(amount));
+  return Buffer.concat([PLACE_BET_TOKEN_DISCRIMINATOR, battleIdBuf, Buffer.from([side]), amountBuf]);
+}
+
+export function serializeClaimWinningsToken(battleId: number): Buffer {
+  const battleIdBuf = Buffer.alloc(8);
+  battleIdBuf.writeBigUInt64LE(BigInt(battleId));
+  return Buffer.concat([CLAIM_WINNINGS_TOKEN_DISCRIMINATOR, battleIdBuf]);
+}
+
 // ─── Bet struct deserialization ───────────────────────────────────────────────
 // Layout (8-byte discriminator prefix):
 //   8-39   bettor (Pubkey, 32 bytes)
@@ -232,6 +280,33 @@ export async function fetchBetState(battleId: number, bettor: PublicKey) {
   };
 }
 
+// ─── BetToken struct deserialization ──────────────────────────────────────────
+// Layout (8-byte discriminator prefix):
+//   8-39   bettor (Pubkey, 32 bytes)
+//  40-47   battle_id (u64 LE)
+//  48-79   mint (Pubkey, 32 bytes)
+//    80    side (u8)
+//  81-88   amount (u64 LE)
+//    89    claimed (bool)
+//    90    bump (u8)
+
+export async function fetchBetTokenState(battleId: number, mint: PublicKey, bettor: PublicKey) {
+  const [betTokenPDA] = getBetTokenPDA(battleId, mint, bettor);
+  const accountInfo = await connection.getAccountInfo(betTokenPDA);
+  if (!accountInfo) return null;
+
+  const d = accountInfo.data as Buffer;
+  return {
+    bettor: new PublicKey(d.subarray(8, 40)),
+    battleId: readU64LE(d, 40),
+    mint: new PublicKey(d.subarray(48, 80)),
+    side: d[80],
+    amount: readU64LE(d, 81),
+    claimed: d[89] !== 0,
+    bump: d[90],
+  };
+}
+
 export async function fetchBattleState(battleId: number) {
   const [battlePDA] = getBattlePDA(battleId);
   const accountInfo = await connection.getAccountInfo(battlePDA);
@@ -248,9 +323,12 @@ export async function fetchBattleState(battleId: number) {
     hpA: d[136],
     hpB: d[137],
     status: d[138],
-    totalBetsA: readU64LE(d, 120),
-    totalBetsB: readU64LE(d, 128),
+    totalBackA: readU64LE(d, 120),
+    totalBackB: readU64LE(d, 128),
     // 255 = no winner yet
     winner: winnerDiscriminant === 1 ? d[140] : 255,
+    // Appended fields — 0 for battles created before this field existed.
+    totalBackAUsdc: d.length >= 150 ? readU64LE(d, 142) : 0,
+    totalBackBUsdc: d.length >= 158 ? readU64LE(d, 150) : 0,
   };
 }

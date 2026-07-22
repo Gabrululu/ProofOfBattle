@@ -6,7 +6,7 @@ import { Commentary }   from "./components/Commentary";
 import { VoiceControl } from "./components/VoiceControl";
 import { Arena }        from "./components/Arena";
 import { WalletButton } from "./components/WalletButton";
-import { BettingPanel } from "./components/BettingPanel";
+import { BackingPanel } from "./components/BackingPanel";
 import { LiveStream }   from "./components/LiveStream";
 import { RefereePanel } from "./components/RefereePanel";
 import { useArenaSocket } from "./hooks/useWebSocket";
@@ -155,7 +155,7 @@ function ArenaContent({
   const [posA, setPosA]                 = useState({ x: -1.2, y: 0 });
   const [posB, setPosB]                 = useState({ x:  1.2, y: 0 });
   const [txLog, setTxLog]               = useState<string[]>([]);
-  const [bets, setBets]                 = useState({ a: 0, b: 0 });
+  const [backs, setBacks]                = useState({ a: 0, b: 0 });
   const [nameA, setNameA]               = useState("UNIT ALPHA");
   const [nameB, setNameB]               = useState("UNIT BETA");
   const [statsA, setStatsA]             = useState<{ atk: number; def: number; spd: number } | null>(null);
@@ -174,7 +174,7 @@ function ArenaContent({
 
   // Which side (if any) the connected wallet owns — checked across ALL of the
   // wallet's registered robots, since one wallet can own several — drives
-  // whether this client sees voice commands (competitor) or just betting (spectator).
+  // whether this client sees voice commands (competitor) or just backing (spectator).
   const isCommanderA = !!chainBattle && myRobots.some((r) => r.pda === chainBattle.robotA);
   const isCommanderB = !!chainBattle && myRobots.some((r) => r.pda === chainBattle.robotB);
   const isSpectator  = !!publicKey && !isCommanderA && !isCommanderB;
@@ -241,8 +241,8 @@ function ArenaContent({
   useEffect(() => {
     if (!lastEvent) return;
     if (lastEvent.type === "damage") {
-      const e = lastEvent as DamageEvent & { totalBetsA?: number; totalBetsB?: number };
-      if (e.totalBetsA !== undefined) setBets({ a: e.totalBetsA, b: e.totalBetsB ?? 0 });
+      const e = lastEvent as DamageEvent & { totalBackA?: number; totalBackB?: number };
+      if (e.totalBackA !== undefined) setBacks({ a: e.totalBackA, b: e.totalBackB ?? 0 });
       setMatch((m) => ({ ...m, hpA: e.hpA, hpB: e.hpB }));
       setCommentary((c) => [
         ...c.slice(-30),
@@ -388,9 +388,19 @@ function ArenaContent({
           </div>
         </div>
 
-        {/* RIGHT — betting, commentary, voice control, tx log */}
+        {/* RIGHT — backing, commentary, voice control, tx log */}
         <div className="flex flex-col gap-4">
-          <BettingPanel arenaId={arenaId} totalBetsA={bets.a} totalBetsB={bets.b} isFinished={isFinished} chainStatus={chainBattle?.status ?? null} nameA={nameA} nameB={nameB} />
+          <BackingPanel
+            arenaId={arenaId}
+            totalBackA={backs.a}
+            totalBackB={backs.b}
+            totalBackAUsdc={chainBattle?.totalBackAUsdc ?? 0}
+            totalBackBUsdc={chainBattle?.totalBackBUsdc ?? 0}
+            isFinished={isFinished}
+            chainStatus={chainBattle?.status ?? null}
+            nameA={nameA}
+            nameB={nameB}
+          />
           {compMode === "physical" && publicKey?.toBase58() === compCreator && (
             <RefereePanel battleId={arenaId} creator={compCreator} nameA={nameA} nameB={nameB} />
           )}

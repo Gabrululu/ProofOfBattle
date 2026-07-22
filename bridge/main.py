@@ -158,7 +158,7 @@ async def admin_setup(req: SetupRequest):
 
 @app.post("/admin/battle/{battle_id}/start")
 async def admin_start_battle(battle_id: int):
-    """Transition battle from Waiting → Active so betting closes and combat begins."""
+    """Transition battle from Waiting → Active so backing closes and combat begins."""
     tx = await solana.start_battle(battle_id)
     if battle_id in competitions:
         competitions[battle_id]["status"] = "active"
@@ -278,7 +278,7 @@ async def start_competition_flow(
     battle_id: int,
     creator: str = Query(default=""),
 ):
-    """Transition Waiting→Active, closing the betting window and starting combat.
+    """Transition Waiting→Active, closing the backing window and starting combat.
 
     The on-chain battle is created client-side, at competition-creation time
     (see /api/competition's docstring), so it spends real time in "Waiting"

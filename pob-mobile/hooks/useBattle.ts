@@ -13,8 +13,10 @@ export interface BattleState {
   hpA: number;
   hpB: number;
   status: number;       // 0=Waiting 1=Active 2=Finished
-  totalBetsA: number;
-  totalBetsB: number;
+  totalBackA: number;
+  totalBackB: number;
+  totalBackAUsdc: number;
+  totalBackBUsdc: number;
   winner: number;       // 255 = no winner
   events: BattleEvent[];
   robotA: string;
@@ -25,8 +27,10 @@ const DEFAULT_STATE: BattleState = {
   hpA: 100,
   hpB: 100,
   status: 0,
-  totalBetsA: 0,
-  totalBetsB: 0,
+  totalBackA: 0,
+  totalBackB: 0,
+  totalBackAUsdc: 0,
+  totalBackBUsdc: 0,
   winner: 255,
   events: [],
   robotA: "",
@@ -64,8 +68,10 @@ export function useBattle(battleId: number) {
             hpA: state.hpA,
             hpB: state.hpB,
             status: state.status,
-            totalBetsA: state.totalBetsA,
-            totalBetsB: state.totalBetsB,
+            totalBackA: state.totalBackA,
+            totalBackB: state.totalBackB,
+            totalBackAUsdc: state.totalBackAUsdc,
+            totalBackBUsdc: state.totalBackBUsdc,
             winner: state.winner,
             robotA: state.robotA,
             robotB: state.robotB,

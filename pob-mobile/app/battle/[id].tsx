@@ -12,10 +12,11 @@ import { useBattle }    from "../../hooks/useBattle";
 import { useWallet }    from "../../hooks/useWallet";
 import { useRobot }     from "../../hooks/useRobot";
 import { HPBar }        from "../../components/HPBar";
-import { BetPanel }     from "../../components/BetPanel";
+import { BackPanel }    from "../../components/BackPanel";
 import { ClaimPanel }   from "../../components/ClaimPanel";
 import { RobotFace }    from "../../components/RobotFace";
 import { CommandPanel } from "../../components/CommandPanel";
+import { HardwareControlPanel } from "../../components/HardwareControlPanel";
 import { RefereePanel } from "../../components/RefereePanel";
 import { BRIDGE_BASE_URL } from "../../lib/constants";
 import { C, MONO, SANS_900 } from "../../lib/theme";
@@ -394,30 +395,37 @@ export default function BattleScreen() {
               <View style={styles.statsRow}>
                 <StatBox
                   label="POOL → A"
-                  value={`${(battle.totalBetsA / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
+                  value={`${(battle.totalBackA / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
                   color={C.robotA}
                 />
                 <StatBox
                   label="TOTAL POOL"
-                  value={`${((battle.totalBetsA + battle.totalBetsB) / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
+                  value={`${((battle.totalBackA + battle.totalBackB) / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
                   color={C.teal}
                 />
                 <StatBox
                   label="POOL → B"
-                  value={`${(battle.totalBetsB / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
+                  value={`${(battle.totalBackB / LAMPORTS_PER_SOL).toFixed(3)} SOL`}
                   color={C.robotB}
                 />
               </View>
             </View>
 
             {/* ── Commander panel ────────────────────────────────── */}
+            {/* Physical mode steers a real ESP32 robot over local WiFi;
+                online mode sends voice/text commands to the AI agent driving
+                the Webots simulation — different transport, same commander UX. */}
             {isCommander && commanderSide && (
-              <CommandPanel
-                arenaId={battleId}
-                robotId={commanderSide}
-                myHp={commanderSide === "robot_a" ? battle.hpA : battle.hpB}
-                enemyHp={commanderSide === "robot_a" ? battle.hpB : battle.hpA}
-              />
+              compMode === "physical" ? (
+                <HardwareControlPanel robotId={commanderSide} />
+              ) : (
+                <CommandPanel
+                  arenaId={battleId}
+                  robotId={commanderSide}
+                  myHp={commanderSide === "robot_a" ? battle.hpA : battle.hpB}
+                  enemyHp={commanderSide === "robot_a" ? battle.hpB : battle.hpA}
+                />
+              )
             )}
 
             {/* ── Referee panel (physical mode, creator only) ─────── */}
@@ -430,13 +438,15 @@ export default function BattleScreen() {
               />
             )}
 
-            {/* ── Bet panel ──────────────────────────────────────── */}
+            {/* ── Back panel ─────────────────────────────────────── */}
             {isLive && !isCommander && (
-              <BetPanel
+              <BackPanel
                 battleId={battleId}
                 publicKey={publicKey}
-                totalBetsA={battle.totalBetsA}
-                totalBetsB={battle.totalBetsB}
+                totalBackA={battle.totalBackA}
+                totalBackB={battle.totalBackB}
+                totalBackAUsdc={battle.totalBackAUsdc}
+                totalBackBUsdc={battle.totalBackBUsdc}
                 nameA={nameA}
                 nameB={nameB}
               />

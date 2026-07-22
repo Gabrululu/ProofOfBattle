@@ -5,6 +5,15 @@ export const PROGRAM_ID = new PublicKey(
   "9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP"
 );
 
+// Circle's official devnet USDC mint (6 decimals). The on-chain program
+// accepts any mint for place_bet_token/claim_winnings_token — this is a
+// frontend-level choice, not an on-chain restriction, so a different/mainnet
+// mint can be swapped in later without a redeploy.
+export const USDC_MINT = new PublicKey(
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+);
+export const USDC_DECIMALS = 6;
+
 // ─── Transaction confirmation ────────────────────────────────────────────────
 
 // connection.confirmTransaction(signature, commitment) — the signature-only
@@ -64,6 +73,38 @@ const ROBOT_DISCRIMINATOR = Uint8Array.from([34, 202, 182, 118, 208, 196, 10, 22
 export function getBattlePDA(battleId: number): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [new TextEncoder().encode("battle"), battleIdSeed(battleId)],
+    PROGRAM_ID
+  );
+}
+
+export function getBetPDA(battleId: number, bettor: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [new TextEncoder().encode("bet"), battleIdSeed(battleId), bettor.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+// ─── SPL token (e.g. USDC) backing PDAs ──────────────────────────────────────
+// Pooled separately per mint (place_bet_token/claim_winnings_token) so
+// currencies never mix into one payout pool — see on-chain lib.rs.
+
+export function getBetTokenPDA(battleId: number, mint: PublicKey, bettor: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [new TextEncoder().encode("bet_token"), battleIdSeed(battleId), mint.toBuffer(), bettor.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+export function getVaultAuthorityPDA(battleId: number, mint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [new TextEncoder().encode("vault_auth"), battleIdSeed(battleId), mint.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
+export function getVaultTokenPDA(battleId: number, mint: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [new TextEncoder().encode("vault_token"), battleIdSeed(battleId), mint.toBuffer()],
     PROGRAM_ID
   );
 }
@@ -150,16 +191,27 @@ export async function fetchRobotByPDA(
 //  48-79  robot_b (Pubkey)
 //  80-111 owner_a (Pubkey)
 // 112-119 entry_fee (u64 LE)
-// 120-127 total_bets_a (u64 LE)
-// 128-135 total_bets_b (u64 LE)
+// 120-127 total_bets_a (u64 LE, SOL)
+// 128-135 total_bets_b (u64 LE, SOL)
 //   136   hp_a (u8)
 //   137   hp_b (u8)
 //   138   status (0=Waiting 1=Active 2=Finished)
+// 139-140 winner (Option<u8>)
+//   141   bump (u8)
+// 142-149 total_back_a_usdc (u64 LE) — appended for SPL token backing
+// 150-157 total_back_b_usdc (u64 LE)
 
 export interface BattleOnChainState {
   robotA: string;
   robotB: string;
   status: number;
+  totalBackAUsdc: number;
+  totalBackBUsdc: number;
+}
+
+function readU64LE(buf: Uint8Array, offset: number): number {
+  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  return Number(view.getBigUint64(offset, true));
 }
 
 export async function fetchBattleOnChain(
@@ -175,5 +227,7 @@ export async function fetchBattleOnChain(
     robotA: new PublicKey(d.subarray(16, 48)).toString(),
     robotB: new PublicKey(d.subarray(48, 80)).toString(),
     status: d[138],
+    totalBackAUsdc: d.length >= 150 ? readU64LE(d, 142) : 0,
+    totalBackBUsdc: d.length >= 158 ? readU64LE(d, 150) : 0,
   };
 }

@@ -226,8 +226,10 @@ class SolanaService:
                 "hp_b": account.hp_b,
                 "status": list(account.status.__dict__.keys())[0].capitalize(),
                 "winner": account.winner,
-                "total_bets_a": account.total_bets_a,
-                "total_bets_b": account.total_bets_b,
+                "total_back_a": account.total_bets_a,
+                "total_back_b": account.total_bets_b,
+                "total_back_a_usdc": account.total_back_a_usdc,
+                "total_back_b_usdc": account.total_back_b_usdc,
                 "robot_a": str(account.robot_a),
                 "robot_b": str(account.robot_b),
             }

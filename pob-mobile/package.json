@@ -16,6 +16,7 @@
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.0.0",
     "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "^2.0.0",
     "@solana-mobile/wallet-adapter-mobile": "^2.0.0",
+    "@solana/spl-token": "^0.4.15",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/web3.js": "^1.95.4",
     "buffer": "^6.0.3",
