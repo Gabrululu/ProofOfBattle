@@ -26,7 +26,7 @@ interface Props {
 }
 
 export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB, nameA = "ROBOT A", nameB = "ROBOT B" }: Props) {
-  const { connect, connecting } = useWallet();
+  const { connect, connecting, authorizeSession } = useWallet();
   const [side,    setSide]    = useState<0 | 1 | null>(null);
   const [amount,  setAmount]  = useState("0.1");
   const [loading, setLoading] = useState(false);
@@ -55,6 +55,7 @@ export function BetPanel({ battleId, publicKey, totalBetsA, totalBetsB, nameA = 
       ]);
 
       await transact(async (wallet: any) => {
+        await authorizeSession(wallet);
         const { blockhash } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({

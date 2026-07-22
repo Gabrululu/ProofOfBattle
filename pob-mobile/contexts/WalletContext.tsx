@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Alert } from "react-native";
@@ -10,8 +11,23 @@ import { PublicKey } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { toast } from "../components/Toast";
+import { APP_IDENTITY } from "../lib/constants";
 
 const STORAGE_KEY = "@pob_wallet_pubkey";
+const AUTH_TOKEN_KEY = "@pob_wallet_auth_token";
+
+function decodeAddress(raw: string): PublicKey {
+  // MWA v2 returns address as base64-encoded 32-byte public key.
+  // PublicKey() only accepts base58 strings or raw byte arrays —
+  // passing base64 directly causes a silent decode error.
+  try {
+    // Primary: decode base64 → bytes → PublicKey
+    return new PublicKey(Buffer.from(raw, "base64"));
+  } catch {
+    // Fallback: some wallet implementations already return base58
+    return new PublicKey(raw);
+  }
+}
 
 interface WalletCtx {
   publicKey: PublicKey | null;
@@ -19,6 +35,7 @@ interface WalletCtx {
   isWebPreview: false;
   connect: () => Promise<void>;
   disconnect: () => void;
+  authorizeSession: (wallet: any) => Promise<PublicKey>;
 }
 
 const WalletContext = createContext<WalletCtx>({
@@ -27,11 +44,17 @@ const WalletContext = createContext<WalletCtx>({
   isWebPreview: false,
   connect: async () => {},
   disconnect: () => {},
+  authorizeSession: async () => {
+    throw new Error("WalletProvider not mounted");
+  },
 });
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
   const [connecting, setConnecting] = useState(false);
+  // auth_token is scoped to each transact() session — every session must
+  // reauthorize with it (or authorize fresh) before it can sign anything.
+  const authTokenRef = useRef<string | null>(null);
 
   // Restore session on app start
   useEffect(() => {
@@ -44,36 +67,46 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       }
     });
+    AsyncStorage.getItem(AUTH_TOKEN_KEY).then((token) => {
+      if (token) authTokenRef.current = token;
+    });
+  }, []);
+
+  // Must be called as the first thing inside every transact() callback that
+  // needs to sign/send — MWA requires a fresh authorize/reauthorize per session.
+  const authorizeSession = useCallback(async (wallet: any): Promise<PublicKey> => {
+    let result;
+    if (authTokenRef.current) {
+      try {
+        result = await wallet.reauthorize({
+          auth_token: authTokenRef.current,
+          identity: APP_IDENTITY,
+        });
+      } catch {
+        result = null;
+      }
+    }
+    if (!result) {
+      result = await wallet.authorize({
+        cluster: "devnet",
+        identity: APP_IDENTITY,
+      });
+    }
+
+    authTokenRef.current = result.auth_token;
+    await AsyncStorage.setItem(AUTH_TOKEN_KEY, result.auth_token);
+
+    const pk = decodeAddress(result.accounts[0].address);
+    setPublicKey(pk);
+    await AsyncStorage.setItem(STORAGE_KEY, pk.toBase58());
+    return pk;
   }, []);
 
   const connect = useCallback(async () => {
     setConnecting(true);
     try {
       await transact(async (wallet: any) => {
-        const result = await wallet.authorize({
-          cluster: "devnet",
-          identity: {
-            name: "Proof of Battle",
-            uri: "https://proofofbattle.xyz",
-            icon: "/icon.png",
-          },
-        });
-
-        // MWA v2 returns address as base64-encoded 32-byte public key.
-        // PublicKey() only accepts base58 strings or raw byte arrays —
-        // passing base64 directly causes a silent decode error.
-        const raw = result.accounts[0].address;
-        let pk: PublicKey;
-        try {
-          // Primary: decode base64 → bytes → PublicKey
-          pk = new PublicKey(Buffer.from(raw, "base64"));
-        } catch {
-          // Fallback: some wallet implementations already return base58
-          pk = new PublicKey(raw);
-        }
-
-        setPublicKey(pk);
-        await AsyncStorage.setItem(STORAGE_KEY, pk.toBase58());
+        const pk = await authorizeSession(wallet);
         toast.success("Wallet connected", pk.toBase58().slice(0, 8) + "…" + pk.toBase58().slice(-6));
       });
     } catch (e) {
@@ -91,16 +124,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [authorizeSession]);
 
   const disconnect = useCallback(() => {
     setPublicKey(null);
+    authTokenRef.current = null;
     AsyncStorage.removeItem(STORAGE_KEY);
+    AsyncStorage.removeItem(AUTH_TOKEN_KEY);
   }, []);
 
   return (
     <WalletContext.Provider
-      value={{ publicKey, connecting, isWebPreview: false, connect, disconnect }}
+      value={{ publicKey, connecting, isWebPreview: false, connect, disconnect, authorizeSession }}
     >
       {children}
     </WalletContext.Provider>

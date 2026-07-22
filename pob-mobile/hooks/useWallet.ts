@@ -18,5 +18,9 @@ export function useWallet() {
 
   const disconnect = useCallback(() => {}, []);
 
-  return { publicKey, connect, disconnect, connecting, isWebPreview };
+  const authorizeSession = useCallback(async (_wallet: any): Promise<PublicKey> => {
+    throw new Error("MWA is native-only — open this app on an Android device.");
+  }, []);
+
+  return { publicKey, connect, disconnect, connecting, isWebPreview, authorizeSession };
 }

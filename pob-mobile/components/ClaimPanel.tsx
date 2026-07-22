@@ -14,6 +14,7 @@ import {
 } from "../lib/program";
 import { PROGRAM_ID } from "../lib/constants";
 import { C, MONO, SANS_900 } from "../lib/theme";
+import { useWallet } from "../hooks/useWallet";
 
 interface Props {
   battleId:  number;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function ClaimPanel({ battleId, publicKey, winner }: Props) {
+  const { authorizeSession } = useWallet();
   const [bet, setBet]         = useState<{ side: number; amount: number; claimed: boolean } | null>(null);
   const [fetching, setFetching] = useState(true);
   const [loading,  setLoading]  = useState(false);
@@ -65,6 +67,7 @@ export function ClaimPanel({ battleId, publicKey, winner }: Props) {
       const [vaultPDA]  = getVaultPDA(battleId);
 
       await transact(async (wallet: any) => {
+        await authorizeSession(wallet);
         const { blockhash } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({

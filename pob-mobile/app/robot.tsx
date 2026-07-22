@@ -71,7 +71,7 @@ function StatBar({ label, value, color }: { label: string; value: number; color:
 
 export default function RobotScreen() {
   const router = useRouter();
-  const { publicKey, connect, disconnect, connecting, isWebPreview } = useWallet();
+  const { publicKey, connect, disconnect, connecting, isWebPreview, authorizeSession } = useWallet();
   const { robot, loading, reload } = useRobot(publicKey);
   const [name, setName] = useState("");
   const [preset, setPreset] = useState(PRESETS[0]);
@@ -139,6 +139,7 @@ export default function RobotScreen() {
       const data = serializeRegisterRobot(trimmed, activeStats.attack, activeStats.defense, activeStats.speed);
 
       await transact(async (wallet: Parameters<Parameters<typeof transact>[0]>[0]) => {
+        await authorizeSession(wallet);
         const { blockhash } = await connection.getLatestBlockhash();
         const tx = new Transaction({ recentBlockhash: blockhash, feePayer: publicKey });
         tx.add(new TransactionInstruction({

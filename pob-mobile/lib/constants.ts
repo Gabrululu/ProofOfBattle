@@ -15,3 +15,11 @@ export const BRIDGE_BASE_URL = BRIDGE_HOST;
 export const BRIDGE_WS_BASE  = BRIDGE_HOST.replace(/^https?/, (p) =>
   p === "https" ? "wss" : "ws"
 );
+
+// MWA scopes auth_token to the identity it was issued for — every
+// authorize()/reauthorize() call across the app must use this same object.
+export const APP_IDENTITY = {
+  name: "Proof of Battle",
+  uri: "https://proofofbattle.xyz",
+  icon: "/icon.png",
+};
