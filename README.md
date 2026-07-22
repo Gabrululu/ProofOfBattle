@@ -2,7 +2,9 @@
 
 > *Voice-commanded robot battles, arbitrated on-chain.*
 
-An AI-powered robot combat platform where players register fighters on Solana, command them using natural language via a mobile app, and every hit is recorded as an immutable on-chain transaction. Spectators can bet SOL on the outcome and claim trustless payouts — no intermediary holds the funds.
+An AI-powered robot combat platform where players register fighters on Solana, command them using natural language (or a hardware remote control for real robots) via a mobile app, and every hit is recorded as an immutable on-chain transaction. Spectators back a robot in SOL or USDC and claim trustless payouts — no intermediary holds the funds.
+
+Battles come in two modes: **online** (simulated in Webots, driven by the AI tactical agent) and **physical** (real, ESP32-controlled robots refereed by a human, with an optional live stream for remote viewers).
 
 **Built for Hack Dev3Pack.**
 
@@ -30,10 +32,12 @@ Proof of Battle uses Solana as an impartial referee. Every robot hit, every HP c
 
 ## How It Works
 
+### Online mode — simulated, voice-commanded
+
 ```
-[Commander — Mobile App]          [Spectators / Bettors — Mobile App]
+[Commander — Mobile App]          [Spectators / Backers — Mobile / Web App]
          │                                      │
-  Speaks a voice command                  Bet SOL on a robot
+  Speaks a voice command                Back a robot in SOL or USDC
          │                                      │
          └──────────────────┬───────────────────┘
                             │ WebSocket
@@ -70,6 +74,34 @@ Proof of Battle uses Solana as an impartial referee. Every robot hit, every HP c
                └────────────────────────┘
 ```
 
+### Physical mode — real robots, human-refereed, live-streamed
+
+```
+[Commander — Mobile App]                    [Referee — Mobile / Web App]
+         │                                              │
+  Presses D-pad / action buttons              Reports hits, declares winner
+         │                                              │
+         ▼                                              ▼
+┌──────────────────────┐                    ┌────────────────────────────┐
+│  ESP32 robot (local   │                    │  Bridge  (Railway)         │
+│  WiFi access point)   │                    │  POST /report → handle_    │
+│  — no bridge/internet │                    │  collision() (same path    │
+│  round-trip, direct   │                    │  online mode uses)         │
+│  WebSocket, ~8Hz       │                    │  POST /resolve → resolve_  │
+│  press-and-hold, 500ms │                    │  battle() on-chain        │
+│  watchdog stop         │                    └──────────────┬─────────────┘
+└──────────────────────┘                                   │ WebSocket broadcast
+                                                              ▼
+                                              ┌────────────────────────────┐
+                                              │  Spectators — Web app       │
+                                              │  watch the referee's live   │
+                                              │  stream (YouTube Live /     │
+                                              │  Twitch link) alongside     │
+                                              │  the same HP bars / backing │
+                                              │  panel as online mode       │
+                                              └────────────────────────────┘
+```
+
 ---
 
 ## Project Structure
@@ -78,8 +110,13 @@ Proof of Battle uses Solana as an impartial referee. Every robot hit, every HP c
 ProofOfBattle/
 ├── on-chain/                         # Anchor smart contract (Rust)
 │   ├── programs/proof-of-battle/
-│   │   └── src/lib.rs                # 7 instructions + events + errors
+│   │   └── src/lib.rs                # 9 instructions + events + errors
 │   └── Anchor.toml                   # deployed to Solana Devnet
+│
+├── firmware/                         # ESP32 firmware for physical robots
+│   └── robot-controller/
+│       ├── robot-controller.ino      # WiFi AP + WebSocket RC receiver
+│       └── README.md                 # flashing + pairing + safety notes
 │
 ├── bridge/                           # Python orchestration hub (Railway)
 │   ├── main.py                       # FastAPI + WebSocket server
@@ -92,7 +129,7 @@ ProofOfBattle/
 │       ├── solana.py                 # Transaction signing via anchorpy
 │       └── webots.py                 # TCP / WebSocket sim client
 │
-├── simulation/                       # Webots robot battle world
+├── simulation/                       # Webots robot battle world (online mode)
 │   ├── worlds/arena.wbt
 │   └── controllers/robot_controller/
 │       └── robot_controller.py       # Supervisor: motors, sensors, TCP
@@ -101,33 +138,34 @@ ProofOfBattle/
 │   ├── app/
 │   │   ├── index.tsx                 # Splash / wallet connect
 │   │   ├── home.tsx                  # Live arenas + robot card + filters
-│   │   ├── robot.tsx                 # Register & manage robot on-chain
-│   │   ├── compete.tsx               # Create competition + robot picker
-│   │   ├── leaderboard.tsx           # Global rankings with W/L records
-│   │   ├── history.tsx               # Personal battle history
-│   │   └── battle/[id].tsx           # Live battle view + commander panel
+│   │   ├── robot.tsx                 # Register & manage robots on-chain (list + picker)
+│   │   ├── compete.tsx               # Create competition — real robot picker, mode toggle
+│   │   └── battle/[id].tsx           # Live battle view + commander / referee panel
 │   ├── components/
-│   │   ├── CommandPanel.tsx          # Voice PTT + quick-command chips
-│   │   ├── BetPanel.tsx              # Place SOL bets via MWA
-│   │   ├── ClaimPanel.tsx            # Claim winnings after battle
+│   │   ├── CommandPanel.tsx          # Online mode: voice PTT + quick-command chips
+│   │   ├── HardwareControlPanel.tsx  # Physical mode: ESP32 remote control (D-pad, hold-to-send)
+│   │   ├── RefereePanel.tsx          # Physical mode: report hits / declare winner
+│   │   ├── BackPanel.tsx             # Back a robot in SOL or USDC via MWA
+│   │   ├── ClaimPanel.tsx            # Claim winnings (SOL or USDC) after battle
 │   │   └── Toast.tsx                 # In-app notification toasts
 │   ├── hooks/
 │   │   ├── useWallet.native.ts       # MWA transact() + authorize()
 │   │   ├── useBattle.ts              # WS event feed, auto-reconnect
-│   │   ├── useSeekerWs.ts            # Commander WebSocket channel
-│   │   └── useRobot.ts               # Fetch robot PDA state
-│   ├── lib/program.ts                # Borsh serialization + PDA helpers
+│   │   ├── useSeekerWs.ts            # Commander WebSocket channel (online mode)
+│   │   ├── useRobotHardware.ts       # Direct local WebSocket to an ESP32 robot
+│   │   └── useRobot.ts               # Fetch all of a wallet's robot PDAs + active selection
+│   ├── lib/program.ts                # Borsh serialization + PDA helpers (SOL + SPL token)
 │   └── assets/                       # icon.png, adaptive-icon.png, splash.png
 │
 └── app/                              # React web viewer (Vite)
     └── src/
         ├── views/
         │   ├── StreamBrowser.tsx     # Live arena list + filters + notifications
-        │   ├── RobotRegister.tsx     # Robot registration form
-        │   ├── CreateCompetition.tsx # Competition creation with robot picker
+        │   ├── RobotRegister.tsx     # Robot registration + list of your robots
+        │   ├── CreateCompetition.tsx # Real on-chain robot picker, mode toggle, stream link
         │   ├── Leaderboard.tsx       # Global rankings
-        │   └── History.tsx           # Personal battle history
-        ├── components/               # HealthBar, Arena, BettingPanel, VoiceControl
+        │   └── History.tsx          # Personal battle history
+        ├── components/               # HealthBar, Arena, BackingPanel, RefereePanel, LiveStream, VoiceControl
         └── hooks/useWebSocket.ts
 ```
 
@@ -136,10 +174,26 @@ ProofOfBattle/
 ## Features
 
 ### Competition Management
-Creators open a competition from the mobile app or web, set a name, location, and pick their robots (auto-filled from their registered profile or by searching another wallet). The lobby shows a **WAITING** status until the creator taps **⚔ INICIAR BATALLA**, which atomically registers both robots on-chain and transitions the battle to **ACTIVE**.
+Creators open a competition from the mobile app or web, set a name, location, mode (**online**/**physical**), and pick robot A from their own registered robots and robot B by searching any wallet. Creating a competition signs `create_battle` **from the creator's own wallet** — the on-chain program requires `robot_a.owner == creator`, so the battle is bound to a real, already-registered robot from the start, not a placeholder. The lobby shows **WAITING** until the creator taps **⚔ INICIAR BATALLA**, which transitions the battle to **ACTIVE** and closes backing.
+
+### Multi-Robot Management
+A wallet can register more than one robot (the on-chain PDA is scoped by `owner + name`). The robot screen (mobile) / register view (web) lists every robot you own, lets you mark one **ACTIVE**, and register more at any time — "which robot is mine" is resolved by scanning `getProgramAccounts` for your owner pubkey, not by guessing a single PDA.
 
 ### Robot Profiles & Stats
-Every robot is registered with three combat attributes — **ATK · DEF · SPD** — and optional category tags (SUMO, COMBAT, LINE FOLLOW, etc.). Stats are stored in the bridge profile and mirrored to the on-chain PDA. The arena view shows a mirrored stat bar comparison between both combatants before and during the fight.
+Every robot is registered with three combat attributes — **ATK · DEF · SPD** — and optional category tags (SUMO, COMBAT, LINE FOLLOW, etc.). Stats are stored in the bridge profile (keyed by `owner:name`, so multiple robots per wallet don't overwrite each other) and mirrored to the on-chain PDA. The arena view shows a mirrored stat bar comparison between both combatants before and during the fight.
+
+### Online vs Physical Modes
+- **Online**: the existing Webots-simulated flow — voice/text commands go to the ARES AI agent, which drives the virtual robots; damage and results are reported on-chain automatically.
+- **Physical**: real, ESP32-controlled robots. The commander steers their robot from the mobile app's **Hardware Control Panel** over a direct local-WiFi WebSocket (no bridge round-trip — see *Hardware Remote Control* below). The creator referees the match from a **Referee Panel** (web or mobile): report a hit (`POST /api/competition/{id}/report`) or declare the winner (`POST /api/competition/{id}/resolve`), both of which call the *same* `handle_collision()`/`handle_match_over()` bridge functions the online/Webots path uses — physical mode is just a different input source into the identical on-chain reporting pipeline.
+
+### Live Streaming (Physical Mode)
+When creating a physical competition, the creator pastes a live stream link (YouTube Live or Twitch). The web arena view embeds it in place of the simulated Webots visualization, so remote spectators can watch the real match while backing and HP bars work exactly as they do in online mode.
+
+### Hardware Remote Control (Physical Mode)
+The mobile app's **Hardware Control Panel** connects directly to a robot's onboard ESP32 over its own local WiFi access point (`firmware/robot-controller/`) — see the [Hardware section](#hardware--esp32-robot-controller) below for firmware details, pairing, and safety notes.
+
+### Backing in SOL or USDC
+Spectators back a robot with a **free-entry amount** (no preset/default) in either **SOL** or **USDC** (devnet mint `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`). The two currencies are pooled completely separately on-chain (`place_bet`/`claim_winnings` for SOL, `place_bet_token`/`claim_winnings_token` for SPL tokens) so they never mix into one payout pool. Claiming auto-detects which currency you backed with.
 
 ### Live Arenas & Filters
 The arena browser polls every 5 seconds and lets users filter by **ALL / LIVE / WAIT / ENDED** with live count badges. Each card shows the competition name, location, team members (if a team battle), viewer count, and status.
@@ -168,15 +222,17 @@ Users can view every competition they created, with combatant names, stats, and 
 
 | Instruction | Description |
 |---|---|
-| `register_robot` | Create a robot PDA with name, attack, defense, speed |
-| `create_battle` | Open a battle and a SOL vault PDA for bets |
+| `register_robot` | Create a robot PDA (seeds: `owner + name` — one wallet can own several) |
+| `create_battle` | Open a battle + SOL vault PDA. **Signed by the creator's own wallet** — requires `robot_a.owner == creator`, so `robot_a`/`robot_b` are real, already-registered robots |
 | `place_bet` | Lock SOL in the vault — inaccessible until battle resolves |
-| `start_battle` | Transition `Waiting → Active`, closes betting |
-| `report_damage` | Record a hit on-chain, deduct HP (bridge authority) |
+| `place_bet_token` | Same as `place_bet`, for an SPL token (e.g. USDC) — pooled separately per mint via its own `BetToken`/vault-token PDAs |
+| `start_battle` | Transition `Waiting → Active`, closes backing |
+| `report_damage` | Record a hit on-chain, deduct HP (bridge authority — driven by Webots online, or by a human referee's `/report` call in physical mode) |
 | `resolve_battle` | Declare winner, update robot W/L records |
-| `claim_winnings` | Winning bettors claim proportional payout (95 % of pool) |
+| `claim_winnings` | Winning SOL backers claim proportional payout (95 % of pool) |
+| `claim_winnings_token` | Same as `claim_winnings`, paid out in the SPL token that was backed |
 
-Payout formula: `(your_bet / winning_pool) × total_pool × 0.95` — calculated on-chain, no off-chain math.
+Payout formula (identical for both currencies): `(your_back / winning_pool) × total_pool × 0.95` — calculated on-chain, no off-chain math.
 
 ---
 
@@ -184,15 +240,17 @@ Payout formula: `(your_bet / winning_pool) × total_pool × 0.95` — calculated
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/competition` | Register a new competition |
+| `POST /api/competition` | Register competition metadata (mode, stream URL, robot display info) — called **after** the creator's `create_battle` tx confirms on-chain |
 | `GET /api/competitions` | List all competitions |
-| `GET /api/competition/{id}` | Get competition metadata (robot names, stats) |
-| `POST /api/competition/{id}/start` | One-click start: registers robots + activates battle |
-| `POST /api/robot-profile` | Save robot profile (ATK/DEF/SPD + categories) |
-| `GET /api/robot-profile/{owner}` | Get profile by wallet address |
+| `GET /api/competition/{id}` | Get competition metadata (mode, stream URL, robot names/stats, creator) |
+| `POST /api/competition/{id}/start` | Creator-only: transitions `Waiting → Active`, closes backing |
+| `POST /api/competition/{id}/report` | Physical-mode only, creator/referee: report a hit (`{side, damage}`) — calls the same `handle_collision()` the Webots path uses |
+| `POST /api/competition/{id}/resolve` | Physical-mode only, creator/referee: declare the winner (`{winner}`) — calls `handle_match_over()` |
+| `POST /api/robot-profile` | Save a robot profile (ATK/DEF/SPD + categories), keyed by `owner:name` |
+| `GET /api/robot-profile/{owner}` | **Returns a list** — all robot profiles for that wallet (a wallet can own several) |
 | `GET /api/leaderboard` | Ranked list merged with on-chain W/L data |
 | `GET /api/battles/history/{owner}` | Competitions created by a wallet |
-| `GET /match/{id}` | Live on-chain match state |
+| `GET /match/{id}` | Live on-chain match state (HP, status, SOL + USDC backing totals) |
 
 ---
 
@@ -204,8 +262,9 @@ All on-chain actions go through MWA `transact()` — the wallet app (Phantom / S
 | Flow | File |
 |---|---|
 | Wallet connect | `hooks/useWallet.native.ts` |
-| Register robot | `app/robot.tsx` |
-| Place bet | `components/BetPanel.tsx` |
+| Register / manage robots | `app/robot.tsx` |
+| Create competition (client-signed `create_battle`) | `app/compete.tsx` |
+| Back a robot (SOL or USDC) | `components/BackPanel.tsx` |
 | Claim winnings | `components/ClaimPanel.tsx` |
 
 ### Virtuals Protocol — G.A.M.E. SDK V2
@@ -249,6 +308,19 @@ All on-chain actions go through MWA `transact()` — the wallet app (Phantom / S
 { "type": "battle_started", "battle_id": 1,
   "robot_a": "UNIT_ALPHA", "robot_b": "UNIT_BETA" }
 ```
+
+---
+
+## Hardware — ESP32 Robot Controller
+
+Physical-mode robots run the firmware in `firmware/robot-controller/`, which turns an ESP32 into a local, self-contained remote-control receiver for a real combat robot.
+
+- **Own WiFi access point** (`POB-ROBOT-01` by default) — the phone connects to the robot's hotspot directly, no venue WiFi or internet dependency, minimizing control latency.
+- **WebSocket server on port 81** parses the *same* `{"action": ..., "intensity": 0-100}` vocabulary `bridge/agents/battle_agent.py` already uses for the simulated robots (`forward`/`back`/`left`/`right`/`spin`/`attack`/`defend`/`stop`) — the command "language" is identical between online and physical mode, only the transport differs.
+- **500ms safety watchdog**: if no command arrives in that window, motors force-stop — protects against a runaway robot if the phone disconnects or the app crashes mid-match. `pob-mobile`'s `HardwareControlPanel`/`useRobotHardware.ts` resends the held action at ~8Hz specifically to keep this fed.
+- Motor pin mapping and PWM ranges in `robot-controller.ino` are placeholders for a generic dual H-bridge driver — see `firmware/robot-controller/README.md` for flashing instructions and what to adjust for your actual wiring before a real match.
+
+**Pairing:** connect the phone to the robot's WiFi network in system settings, then open the Hardware Control Panel in the app (physical mode, as commander) — it defaults to `192.168.4.1`, the standard ESP32 AP address, so pairing is just tapping **CONNECT**.
 
 ---
 
@@ -334,15 +406,28 @@ Requires Phantom or Solflare installed from Google Play to connect a wallet.
 
 ### 5 · Start a Battle
 
+The normal path is entirely in-app: create a competition (this signs `create_battle` with your own wallet, referencing your real registered robot), then tap **⚔ INICIAR BATALLA** (creator-only) once ready.
+
+For quick admin/demo testing without the app, `/admin/setup` registers two bridge-owned placeholder robots and calls `create_battle` server-side instead:
+
 ```bash
-# Register robots and open the battle
+# Demo/testing only — registers placeholder robots + opens the battle
 curl -X POST https://proofofbattle-production.up.railway.app/admin/setup
 
 # Transition Waiting → Active
 curl -X POST https://proofofbattle-production.up.railway.app/admin/battle/1/start
 ```
 
-Or use the in-app **⚔ INICIAR BATALLA** button (visible only to the competition creator).
+### 6 · Physical Mode (real robots)
+
+```bash
+cd firmware/robot-controller
+# Open robot-controller.ino in Arduino IDE, install the "WebSockets" and
+# "ArduinoJson" libraries, adjust the motor pins to your H-bridge wiring,
+# select your ESP32 board, and upload.
+```
+
+See `firmware/robot-controller/README.md` for pairing and safety details. Once flashed, create a **physical**-mode competition in the app, paste a live-stream link, and the commander's Hardware Control Panel will pair with the robot's WiFi hotspot.
 
 ---
 
@@ -358,7 +443,9 @@ ELEVENLABS_VOICE_ID=onwK4e9ZLuTAKqWW03F9
 # Virtuals Protocol G.A.M.E. (https://console.game.virtuals.io)
 VIRTUALS_API_KEY=apt-your_game_api_key_here
 
-# Solana
+# Solana — the public devnet RPC is heavily rate-limited and its
+# confirmTransaction polling is unreliable under any load; use a dedicated
+# provider (Helius, QuickNode, etc.) in anything beyond casual local testing.
 SOLANA_RPC_URL=https://api.devnet.solana.com
 PROGRAM_ID=9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP
 BRIDGE_KEYPAIR_JSON=[12,34,...]   # or use BRIDGE_KEYPAIR_PATH
@@ -371,12 +458,23 @@ WEBOTS_PORT=5005
 WEBOTS_WS_URL=wss://your-url.trycloudflare.com
 ```
 
-### `pob-mobile` (EAS build profiles)
+### `pob-mobile` (EAS build profiles / `.env`)
 
-Set `EXPO_PUBLIC_BRIDGE_URL` in `eas.json` or as an EAS secret:
-
+```env
+EXPO_PUBLIC_BRIDGE_URL=https://proofofbattle-production.up.railway.app
+# Optional — same rate-limiting caveat as the bridge's SOLANA_RPC_URL above;
+# defaults to the public devnet RPC if unset.
+EXPO_PUBLIC_SOLANA_RPC=https://devnet.helius-rpc.com/?api-key=your_key
 ```
-https://proofofbattle-production.up.railway.app
+
+### `app/.env` (web)
+
+```env
+# Must include the ws(s):// scheme explicitly, or it gets resolved as a path
+# relative to the current page instead of the bridge's actual origin.
+VITE_BRIDGE_URL=wss://proofofbattle-production.up.railway.app
+# Optional — same rate-limiting caveat as above.
+VITE_SOLANA_RPC=https://devnet.helius-rpc.com/?api-key=your_key
 ```
 
 ---
@@ -385,13 +483,16 @@ https://proofofbattle-production.up.railway.app
 
 | Layer | Technology |
 |---|---|
-| Smart Contract | Rust · Anchor 1.0.2 · Solana Devnet |
+| Smart Contract | Rust · Anchor 1.0.2 · anchor-spl · Solana Devnet |
+| Token Backing | SPL Token / Associated Token Account (USDC, devnet mint) alongside native SOL |
+| Robot Firmware | ESP32 (Arduino) · WebSockets (Links2004) · ArduinoJson |
 | AI Tactical Agent | Virtuals Protocol G.A.M.E. SDK V2 (ARES) |
 | Voice In | ElevenLabs STT — Scribe v1 |
 | Voice Out | ElevenLabs TTS — Turbo v2.5 |
 | Simulation | Webots R2023b |
 | Bridge | Python · FastAPI · WebSockets — Railway |
 | Tunnel | Cloudflare Tunnel (ws_bridge.py) |
+| Live Streaming | External embed (YouTube Live / Twitch) — physical mode |
 | Mobile | React Native · Expo · Solana Mobile Wallet Adapter v2 |
 | APK Build | EAS Build |
 | Web UI | React · Vite · TypeScript · Tailwind CSS |

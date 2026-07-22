@@ -14,9 +14,12 @@ import type { ProofOfBattle } from "../target/types/proof_of_battle";
 // IDL JSON lives in bridge/idl/ (shared between bridge and scripts)
 import idlJson from "../../bridge/idl/proof_of_battle.json";
 
-const PROGRAM_ID = new anchor.web3.PublicKey(
-  "7xStH3SCRkztTc1SWQtcx9ACvwqaYyUJF35dTbpAZG2S"
-);
+// Read from the IDL rather than hardcoding — the on-chain program's real
+// devnet address is 9MFZtJWMutu1E6VDvKSJiDFEncidaoYvrsffr7U1MxCP
+// (declare_id! in lib.rs, Anchor.toml's [programs.devnet]); a previous
+// hardcoded value here was actually the [programs.localnet] address, so
+// every PDA this script derived failed the on-chain seeds constraint.
+const PROGRAM_ID = new anchor.web3.PublicKey((idlJson as any).address);
 
 const ROBOT_A_NAME = "UNIT_ALPHA";
 const ROBOT_B_NAME = "UNIT_BETA";
@@ -68,7 +71,7 @@ describe("setup-battle-devnet", () => {
     try {
       const tx = await program.methods
         .registerRobot(ROBOT_A_NAME, A_ATK, A_DEF, A_SPD)
-        .accounts({ robot: robotAPda, owner: authority.publicKey })
+        .accounts({ owner: authority.publicKey })
         .rpc();
       console.log("Robot A registered:", tx);
     } catch (e: any) {
@@ -84,7 +87,7 @@ describe("setup-battle-devnet", () => {
     try {
       const tx = await program.methods
         .registerRobot(ROBOT_B_NAME, B_ATK, B_DEF, B_SPD)
-        .accounts({ robot: robotBPda, owner: authority.publicKey })
+        .accounts({ owner: authority.publicKey })
         .rpc();
       console.log("Robot B registered:", tx);
     } catch (e: any) {
@@ -101,11 +104,9 @@ describe("setup-battle-devnet", () => {
       const tx = await program.methods
         .createBattle(BATTLE_ID, ENTRY_FEE)
         .accounts({
-          battle:        battlePda,
-          vault:         vaultPda,
-          robotA:        robotAPda,
-          robotB:        robotBPda,
-          creator:       authority.publicKey,
+          robotA:  robotAPda,
+          robotB:  robotBPda,
+          creator: authority.publicKey,
         })
         .rpc();
       console.log("Battle #1 created:", tx);
@@ -121,7 +122,7 @@ describe("setup-battle-devnet", () => {
   it("starts battle #1", async () => {
     const tx = await program.methods
       .startBattle(BATTLE_ID)
-      .accounts({ battle: battlePda, authority: authority.publicKey })
+      .accounts({ authority: authority.publicKey })
       .rpc();
     console.log("Battle #1 STARTED:", tx);
 

@@ -42,7 +42,7 @@ describe("proof-of-battle", () => {
       .accounts({ owner: authority.publicKey })
       .rpc();
 
-    const robot = await program.account.Robot.fetch(robotAPda);
+    const robot = await program.account.robot.fetch(robotAPda);
     assert.equal(robot.name, "Destructor-9000");
     assert.equal(robot.attack, 80);
     assert.equal(robot.defense, 60);
@@ -58,7 +58,7 @@ describe("proof-of-battle", () => {
       .signers([playerB])
       .rpc();
 
-    const robot = await program.account.Robot.fetch(robotBPda);
+    const robot = await program.account.robot.fetch(robotBPda);
     assert.equal(robot.name, "Shredder-X");
   });
 
@@ -72,10 +72,10 @@ describe("proof-of-battle", () => {
       })
       .rpc();
 
-    const battle = await program.account.Battle.fetch(battlePda);
+    const battle = await program.account.battle.fetch(battlePda);
     assert.equal(battle.hpA, 100);
     assert.equal(battle.hpB, 100);
-    assert.deepEqual(battle.status, { Waiting: {} });
+    assert.deepEqual(battle.status, { waiting: {} });
     assert.isNull(battle.winner);
   });
 
@@ -87,7 +87,7 @@ describe("proof-of-battle", () => {
       .accounts({})
       .rpc();
 
-    const battle = await program.account.Battle.fetch(battlePda);
+    const battle = await program.account.battle.fetch(battlePda);
     assert.equal(battle.totalBetsA.toString(), betAmount.toString());
   });
 
@@ -97,13 +97,13 @@ describe("proof-of-battle", () => {
       .accounts({})
       .rpc();
 
-    const battle = await program.account.Battle.fetch(battlePda);
-    assert.deepEqual(battle.status, { Active: {} });
+    const battle = await program.account.battle.fetch(battlePda);
+    assert.deepEqual(battle.status, { active: {} });
   });
 
   it("Reports damage and updates HP", async () => {
     await new Promise<void>((resolve, reject) => {
-      const listener = program.addEventListener("DamageReported", async (e) => {
+      const listener = program.addEventListener("damageReported", async (e) => {
         try {
           assert.equal(e.damage, 25);
           assert.equal(e.hpB, 75);
@@ -122,7 +122,7 @@ describe("proof-of-battle", () => {
         .catch(reject);
     });
 
-    const battle = await program.account.Battle.fetch(battlePda);
+    const battle = await program.account.battle.fetch(battlePda);
     assert.equal(battle.hpB, 75);
   });
 
@@ -142,12 +142,12 @@ describe("proof-of-battle", () => {
       })
       .rpc();
 
-    const battle = await program.account.Battle.fetch(battlePda);
-    assert.deepEqual(battle.status, { Finished: {} });
+    const battle = await program.account.battle.fetch(battlePda);
+    assert.deepEqual(battle.status, { finished: {} });
     assert.equal(battle.winner, 0, "El ganador debe ser el robot A (side 0)");
 
-    const robotA = await program.account.Robot.fetch(robotAPda);
-    const robotB = await program.account.Robot.fetch(robotBPda);
+    const robotA = await program.account.robot.fetch(robotAPda);
+    const robotB = await program.account.robot.fetch(robotBPda);
     assert.equal(robotA.wins, 1);
     assert.equal(robotB.losses, 1);
   });
@@ -168,7 +168,7 @@ describe("proof-of-battle", () => {
     const balanceAfter = await provider.connection.getBalance(authority.publicKey);
     assert.isAbove(balanceAfter, balanceBefore);
 
-    const bet = await program.account.Bet.fetch(betPda);
+    const bet = await program.account.bet.fetch(betPda);
     assert.isTrue(bet.claimed);
   });
 });
